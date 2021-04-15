@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# API key. User needs to get his own.
+api_key.txt
+
+# These notes are for my use. Don't push to repo.
+notes.txt
