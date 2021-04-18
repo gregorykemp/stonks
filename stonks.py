@@ -3,25 +3,27 @@
 # A Python library to get stock data from Alpha Vantage.
 # https://github.com/gregorykemp/stonks
 # 
-#   Copyright 2021 Gregory A. Kemp
+# Copyright 2021 Gregory A. Kemp
 #
-#   Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
 #       http://www.apache.org/licenses/LICENSE-2.0
 #
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS,
-#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#   See the License for the specific language governing permissions and
-#   limitations under the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # We The alpha_vantage class returns data in JSON format.  Also sometimes pandas
 # although you'll never touch the pandas results.
 import json
 # Here we pull the class to get fundamentals data from Alpha Vantage.
 from alpha_vantage.fundamentaldata import FundamentalData
+# We use the sleep method on this object.
+import time
 
 # And this is the class itself.
 
@@ -36,20 +38,69 @@ class stonks:
             raise ValueError("Can't understand symbol {}".format(str(symbol)))
         self.symbol = symbol
 
+        # Sign on.
         if (self.verbose):
             print("I am a stonk and my symbol is {}".format(self.symbol))
 
-        # make connection to Alpha Vantage
+        # Make connection to Alpha Vantage.
         self.fundamentals = FundamentalData(key=api_key, output_format='json')
-        # run query, save result
-        self.overview, self.overview_meta = self.fundamentals.get_company_overview(symbol=self.symbol)
 
-        # now draw fundamental data from Alpha Vantage.
-        # gkemp FIXME delay this until the data is actually needed?
-        self.income, self.income_meta = self.fundamentals.get_income_statement_annual(symbol=self.symbol)
-        self.balance, self.balance_meta = self.fundamentals.get_balance_sheet_annual(symbol=self.symbol)
-        self.cashflow, self.cashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
+        # Initialize some fields.
+        # Start with an empty dictionary.
+        self.overview = {}
+        self.income = {}
+        self.balance = {}
+        self.cashflow = {}
 
+        # Do this as many times as we have to to get a valid result.
+        while (not self.overview):
+            try:
+                self.overview, self.overview_meta = self.fundamentals.get_company_overview(symbol=self.symbol)
+            except ValueError:
+                # This likely means we hit the API access limit.  Wait one minute.
+                # gkemp FIXME need to make this an option in case users have paid access.
+                # Although would they hit this in that case?
+                time.sleep(60)
+
+        # verify we have a valid ticker before proceeding.
+        if (self.overview["Symbol"].lower() != self.symbol.lower()):
+            raise ValueError("couldn't find symbol "+ self.symbol + " in Alpha Vantage")
+
+
+    # This helper function reads the income statement from Alpha Vantage.
+    # This, and the next two functions, just return if the data has already
+    # been downloaded from AlphaVantage.
+
+    def getIncome(self):
+        # I should be able to do "while (not self.income)" but that returned 
+        # a weird, vague error: "The truth value of a DataFrame is ambiguous."
+        # gkemp FIXME : there needs to be a retry limit here or you just hang.
+        while (len(self.income.keys()) == 0):
+            try:
+                self.income, self.income_meta = self.fundamentals.get_income_statement_annual(symbol=self.symbol)
+            except ValueError:
+                print("Sleeping for 1 minute.")
+                time.sleep(60)
+
+    # This helper function gets the balance sheet from Alpha Vantage.
+
+    def getBalance(self):
+        while (len(self.balance.keys()) == 0):
+            try:
+                self.balance, self.balance_meta = self.fundamentals.get_balance_sheet_annual(symbol=self.symbol)
+            except ValueError:
+                print("Sleeping for 1 minute.")
+                time.sleep(60)
+
+    # This gets the cash flow statement from Alpha Vantage.
+    
+    def getCashFlow(self):
+        while (len(self.cashflow.keys()) == 0):
+            try:
+                self.cashflow, self.cashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
+            except ValueError:
+                print("Sleeping for 1 minute.")
+                time.sleep(60)
 
     # This helper dumps the overview.
     def dumpOverview(self):
@@ -65,6 +116,8 @@ class stonks:
     # This returns f score term #1 - is return on assets above zero this year?
     # net income / current assets > 0
     def __fscore1(self):
+        self.getIncome()
+        self.getBalance()
         netIncome = int(self.income["netIncome"][0])
         currentAssets = int(self.balance["totalCurrentAssets"][0])
 
@@ -86,6 +139,7 @@ class stonks:
     # This is also documented on the cash flow statement.
 
     def __fscore2(self):
+        self.getCashFlow()
         if (int(self.cashflow["operatingCashflow"][0]) > 0):
             result = 1
         else:
@@ -102,6 +156,8 @@ class stonks:
     # return a fractional number.
 
     def __fscore3(self):
+        self.getIncome()
+        self.getBalance()
         # Read the index as "N years ago".
         roaThisYear = float(self.income["netIncome"][0]) / float(self.balance["totalCurrentAssets"][0])
         roaLastYear = float(self.income["netIncome"][1]) / float(self.balance["totalCurrentAssets"][1])
@@ -123,6 +179,8 @@ class stonks:
     # Accruals (1 point if Operating Cash Flow/Total Assets is higher than ROA in the current year, 0 otherwise) 
 
     def __fscore4(self):
+        self.getIncome()
+        self.getBalance()
         # Putting everything to float so I don't have to do a second integer-to-
         # float conversion later in the if statement.
         operatingCashflow = float(self.cashflow["operatingCashflow"][0])
@@ -147,8 +205,17 @@ class stonks:
     # long-term leverage ratio = long-term debt / total assets
 
     def __fscore5(self):
-        thisYearLTLR = float(self.balance["longTermDebt"][0]) / float(self.balance["totalAssets"][0])
-        lastYearLTLR = float(self.balance["longTermDebt"][1]) / float(self.balance["totalAssets"][1])
+        self.getBalance()
+        # Do we encode no debt as zero debt?  Hell Naw.  That would be easy.
+        if (self.balance["longTermDebt"][0].lower() == "none"):
+            thisYearLTLR = 0.0
+        else:
+            thisYearLTLR = float(self.balance["longTermDebt"][0]) / float(self.balance["totalAssets"][0])
+
+        if (self.balance["longTermDebt"][1].lower() == "none"):
+            lastYearLTLR = 0.0
+        else:
+            lastYearLTLR = float(self.balance["longTermDebt"][1]) / float(self.balance["totalAssets"][1])
 
         # We have to compare <= instead of < to cover the case where debt is zero
         # in both years.  We want to reward that behavior, not punush it.
@@ -169,6 +236,7 @@ class stonks:
     # I will say current ratio is one of my favorite indicators.
 
     def __fscore6(self):
+        self.getBalance()
         currentRatioThisYear = float(self.balance["totalCurrentAssets"][0]) / float(self.balance["totalCurrentLiabilities"][0])
         currentRatioLastYear = float(self.balance["totalCurrentAssets"][1]) / float(self.balance["totalCurrentLiabilities"][1])
 
@@ -189,6 +257,7 @@ class stonks:
     # Change in the number of shares (1 point if no new shares were issued during the last year)
 
     def __fscore7(self):
+        self.getBalance()
         sharesThisYear = int(self.balance["commonStock"][0])
         sharesLastYear = int(self.balance["commonStock"][1])
 
@@ -209,6 +278,7 @@ class stonks:
     # Change in Gross Margin (1 point if it is higher in the current year compared to the previous one, 0 otherwise)
 
     def __fscore8(self):
+        self.getIncome()
         grossMarginThisYear = (float(self.income["totalRevenue"][0]) - float(self.income["costOfRevenue"][0])) / float(self.income["totalRevenue"][0])
         grossMarginLastYear = (float(self.income["totalRevenue"][1]) - float(self.income["costOfRevenue"][1])) / float(self.income["totalRevenue"][1])
 
@@ -231,6 +301,8 @@ class stonks:
     # asset turnover is net sales divided by average total assets
 
     def __fscore9(self):
+        self.getBalance()
+        self.getIncome()
         avgTotalAssetsThisYear = (float(self.balance["totalAssets"][0]) + float(self.balance["totalAssets"][1])) / 2.0
         avgTotalAssetsLastYear = (float(self.balance["totalAssets"][1]) + float(self.balance["totalAssets"][2])) / 2.0
 
