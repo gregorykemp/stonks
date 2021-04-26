@@ -54,16 +54,23 @@ class stonks:
         self.annualCashflow = {}
 
         # Do this as many times as we have to to get a valid result.
-        while (not self.overview):
+        retryFlag = 0
+        while ((not self.overview) and (retryFlag < 2)):
             try:
                 self.overview, self.overview_meta = self.fundamentals.get_company_overview(symbol=self.symbol)
             except ValueError:
                 # This likely means we hit the API access limit.  Wait one minute.
                 # gkemp FIXME need to make this an option in case users have paid access.
-                # Although would they hit this in that case?
+                # In that case we can pop out immediately on ValueError.
                 time.sleep(60)
+                retryFlag += 1
 
-        # verify we have a valid ticker before proceeding.
+        # Try to validate results of the above retry loop.
+        if (len(self.overview.keys()) == 0):
+            raise KeyError("Count not find " + symbol + " in Alpha Vantage.")
+
+        # verify we have a valid ticker before proceeding.  This should be
+        # redundant code.
         if (self.overview["Symbol"].lower() != self.symbol.lower()):
             raise ValueError("couldn't find symbol "+ self.symbol + " in Alpha Vantage")
 
