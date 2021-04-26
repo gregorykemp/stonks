@@ -51,6 +51,7 @@ class stonks:
         self.income = {}
         self.balance = {}
         self.cashflow = {}
+        self.annualCashflow = {}
 
         # Do this as many times as we have to to get a valid result.
         while (not self.overview):
@@ -101,6 +102,17 @@ class stonks:
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
+
+    # This gets the earnings data from Alpha Vantage.
+
+    def getAnnualCashflow(self):
+        while (len(self.annualCashflow.keys()) == 0):
+            try:
+                self.annualCashflow, self.annualCashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
+            except ValueError:
+                print("Sleeping for 1 minute.")
+                time.sleep(60)
+
 
     # This helper dumps the overview.
     def dumpOverview(self):
