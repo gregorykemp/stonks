@@ -24,6 +24,12 @@ import json
 from alpha_vantage.fundamentaldata import FundamentalData
 # We use the sleep method on this object.
 import time
+# This is used for fitting a line to data.
+import numpy
+Polynomial = numpy.polynomial.Polynomial
+
+# charts and graphs
+# import matplotlib.pyplot as plt 
 
 # And this is the class itself.
 
@@ -32,6 +38,9 @@ class stonks:
     def __init__(self, symbol, api_key, verbose=False):
         # Set verbosity flag
         self.verbose = verbose
+
+        # Initialize API count
+        self.apiCount = 0
 
         # validate input symbol
         if (type(symbol) != str):
@@ -44,6 +53,8 @@ class stonks:
 
         # Make connection to Alpha Vantage.
         self.fundamentals = FundamentalData(key=api_key, output_format='json')
+        if (self.verbose):
+            print("Debug: {}", self.fundamentals.output_format)
 
         # Initialize some fields.
         # Start with an empty dictionary.
@@ -57,6 +68,7 @@ class stonks:
         retryFlag = 0
         while ((not self.overview) and (retryFlag < 2)):
             try:
+                # This throws a warning but the code is correct.
                 self.overview, self.overview_meta = self.fundamentals.get_company_overview(symbol=self.symbol)
             except ValueError:
                 # This likely means we hit the API access limit.  Wait one minute.
@@ -64,6 +76,7 @@ class stonks:
                 # In that case we can pop out immediately on ValueError.
                 time.sleep(60)
                 retryFlag += 1
+        self.apiCount += 1
 
         # Try to validate results of the above retry loop.
         if (len(self.overview.keys()) == 0):
@@ -85,41 +98,52 @@ class stonks:
         # gkemp FIXME : there needs to be a retry limit here or you just hang.
         while (len(self.income.keys()) == 0):
             try:
+                # This throws a warning but the code is correct.
                 self.income, self.income_meta = self.fundamentals.get_income_statement_annual(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
+        self.apiCount += 1
 
     # This helper function gets the balance sheet from Alpha Vantage.
 
     def getBalance(self):
         while (len(self.balance.keys()) == 0):
             try:
+                # This throws a warning but the code is correct.
                 self.balance, self.balance_meta = self.fundamentals.get_balance_sheet_annual(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
+        self.apiCount += 1
 
     # This gets the cash flow statement from Alpha Vantage.
     
     def getCashFlow(self):
         while (len(self.cashflow.keys()) == 0):
             try:
+                # This throws a warning but the code is correct.
                 self.cashflow, self.cashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
+        self.apiCount += 1
 
     # This gets the earnings data from Alpha Vantage.
 
     def getAnnualCashflow(self):
         while (len(self.annualCashflow.keys()) == 0):
             try:
+                # This throws a warning but the code is correct.
                 self.annualCashflow, self.annualCashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
+        self.apiCount += 1
 
+    # This returns the API access count
+    def getApiCount(self):
+        return self.apiCount
 
     # This helper dumps the overview.
     def dumpOverview(self):
@@ -387,4 +411,97 @@ class stonks:
         print("{}\tAsset Turnover ratio higher in the current year compared to previous.".format(fScore[8]))
 
 
+    # This tries to compute the growth rate of the underlying business.
+    def estimateGrowthRate(self):
+        
+        # get historical cash flows from Alpha Vantage
+        self.getAnnualCashflow()
 
+        # Indexing self.annualCashflow returns a pandas object, not a real list.
+        # So there's some shenanigans getting the data how we want it.
+
+        # Let there be lists!
+        myDateList = []
+        myFlowList = []
+
+        # Make a list explicitly from the pandas data frame, casting things to 
+        # the type we need them to be.
+        for index in self.annualCashflow["fiscalDateEnding"].keys():
+            myDateList.append(str(self.annualCashflow["fiscalDateEnding"][index]))
+            # myFlowList.append(math.log(float(self.annualCashflow["operatingCashflow"][index])))
+            myFlowList.append((float(self.annualCashflow["operatingCashflow"][index])))
+
+        # But the lists are backwards.  Reverse them.
+        myDateList.reverse()
+        myFlowList.reverse()
+
+        # Dump out what's in there.
+        # for index in range(0, len(myDateList)):
+            # print("{}: {}: {:,}".format(index, myDateList[index], myFlowList[index]))
+
+        # Now, finally, make numpy arrays from the lists of conditioned data.
+        # myDates = numpy.array(myDateList) # not used
+        myFlows = numpy.array(myFlowList)
+
+        # 1. Fit a line to this data.
+        # pfit.coef is a list of coefficients: y = coef[0] + coef[1] * x
+        pfit = Polynomial.fit(range(0, len(myDateList)), myFlows, 1, window=(0, len(myDateList)), domain=(0,len(myDateList)))
+        
+        # 2. Print the results.  Can't use the y-intercept for the denominator
+        # because it may be negative (was with TTD).  From this I can swag a
+        # growth rate estimate.
+        growthRate = (float(pfit.coef[1])/float(myFlowList[0]))
+        
+        if(self.verbose):
+            print("growth rate? {:.2f}%".format(growthRate * 100))
+
+        return growthRate
+
+    # This method takes a growth rate (you could use the method above....)
+    # and projects an intrinsic value using DCF.  
+    # terminal growth rate defaults to 2%.  Long-term inflation and GDP growth rate.
+    # discount rate defaults to 9%.  Stock index funds return 8% basically for free.
+    # I set years of growth at 10 years, which maybe is too high.
+
+    def discountedCashFlow(self, growthRate, terminalRate=0.02, discountRate=0.09, yearsOfGrowth=10):
+
+        # A little bit of validation.
+        if (type(growthRate) != float):
+            raise ValueError("Expected growthRate to be a float.")
+
+        # then use growth rate to attempt a DCF analysis.
+        # I use EPS here because
+        #   1. Actually calculating free cash flow is hard, and
+        #   2. DCF involves so much guesswork, even under ideal circumatances,
+        #      that accuracy here is pointless.
+        # The idea here is to get the DCF roughly right.
+        
+        cashFlowPerShare = float(self.overview["EPS"])
+        # print("DEBUG: cashFlowPerShare = {:.02f}".format(cashFlowPerShare))
+
+        # set up entry 0 in the array.
+        discountArray = []
+        discountArray.append(cashFlowPerShare)
+
+        # compute growth rate for growth window.
+        for year in range(1,(yearsOfGrowth+1),1):
+            discountArray.append(discountArray[(year-1)] * (1 + growthRate))
+
+        # compute terminal growth.
+        for year in range((yearsOfGrowth+1),40,1):
+            discountArray.append(discountArray[(year-1)] * (1 + terminalRate))
+        
+        # but need to discount those values.
+        # gkemp FIXME make discount rate a parameter
+        for year in range(1,40,1):
+            discountArray[year] = discountArray[year] / ((1 + discountRate) ** year)
+
+        # print("DEBUG: discount array = {}".format(discountArray))
+        
+        # Adding up the discounted values is this easy.
+        discountedCashFlow = sum(discountArray)
+
+        if (self.verbose):
+            print("DCF intrinsic value estimate: {:.02f}".format(discountedCashFlow))
+
+        return discountedCashFlow  
