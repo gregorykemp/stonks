@@ -55,3 +55,11 @@ If you assume a growth rate, you can project potential earnings, discount those 
 * DCF assumes a small terminal value for growth rate.  And this is probably wrong.  Most successful businesses keep coming up with new ideas and keep growing.
 
 So with these limitations in mind, we follow the recipe and predict an intrinsic value based on a provided growth rate estimate.  We use current EPS for earnings.  Ideally we'd use free cash flow, but that's harder to estimate, requires more API reads (respect the free tier), and in the end provides a degree of accuracy you really can't assume here.  For value investing, you want to buy at a discount to intrinsic value.  We don't have to be exactly right on this.  Mostly right will do.
+
+# Other programs
+
+Other programs in this repo make use of stonks:
+* stonks.py -- library defining the class, used by other programs.
+* basics.py -- dumps out overview information on stocks listed on command line.
+* fscore.py -- reports Piotrosky f-score for stocks listed on command line.
+
