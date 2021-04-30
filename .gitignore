@@ -128,8 +128,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# API key. User needs to get his own.
-api_key.txt
+# All text files. 
+*.txt
 
-# These notes are for my use. Don't push to repo.
-notes.txt
+# All PDFs.
+*.PDFs
+
+# All spreadsheets
+*.xlsx
+*.csv
