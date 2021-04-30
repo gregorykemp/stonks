@@ -132,7 +132,7 @@ dmypy.json
 *.txt
 
 # All PDFs.
-*.PDFs
+*.pdf
 
 # All spreadsheets
 *.xlsx
