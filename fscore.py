@@ -1,4 +1,4 @@
-# fscore.py
+#  fscore.py
 #
 # Get Piotrosky F-score for stocks.
 # 
@@ -30,17 +30,36 @@ def main():
     file = open("api_key.txt", "r")
     api_key = file.read()
 
+    apiCount = 0
+    tickerList = []
+    if (len(sys.argv) > 1):
+        tickerList = sys.argv[1:]
+    else:
+        for line in sys.stdin:
+            tickerList.append(line.rstrip())
+
     # Loop through the list of command line arguments provided.
-    for ticker in (sys.argv[1:]):
+    for ticker in tickerList:
         # gkemp FIXME catch errors here.
         temp = stonks(ticker, api_key)
-        fscore = temp.fScore()
+        try:
+            if(float(temp.overview["EPS"]) > 0):
+                fscore = temp.fScore()
+                # Always print the summary score.
+                print("{} f-score: {}".format(ticker, sum(fscore)))
+                # If only one ticker listed, give the expanded report.
+                if (len(tickerList) == 1):
+                    temp.fScorePrettyPrint(fscore)  
+            else:
+                print("{}: {} EPS is negative, we're done.".format(ticker, temp.overview["EPS"]))
+        except:
+            print("{}: something went wrong.". format(ticker))            
 
-        # Always print the summary score.
-        print("{} f-score: {}".format(ticker, sum(fscore)))
-        # If only one ticker listed, give the expanded report.
-        if (len(sys.argv) == 2):
-            temp.fScorePrettyPrint(fscore)            
+        sys.stdout.flush()
+        apiCount += temp.getApiCount()
+        if (apiCount > 400):
+            print("API count limit reached.")
+            break
 
 if __name__ == "__main__":
     main()
