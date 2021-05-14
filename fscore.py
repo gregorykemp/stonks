@@ -40,23 +40,29 @@ def main():
 
     # Loop through the list of command line arguments provided.
     for ticker in tickerList:
-        # gkemp FIXME catch errors here.
-        temp = stonks(ticker, api_key)
+        # This creates the stonk.  This will return a key error if the ticker 
+        # doesn't exist in the Alpha Vantage database.
         try:
-            if(float(temp.overview["EPS"]) > 0):
-                fscore = temp.fScore()
+            thisStonk = stonks(ticker, api_key)
+        except KeyError:
+            print("Ticker {} not found in database.".format(ticker))
+            continue
+
+        try:
+            if(float(thisStonk.overview["EPS"]) > 0):
+                fscore = thisStonk.fScore()
                 # Always print the summary score.
                 print("{} f-score: {}".format(ticker, sum(fscore)))
                 # If only one ticker listed, give the expanded report.
                 if (len(tickerList) == 1):
-                    temp.fScorePrettyPrint(fscore)  
+                    thisStonk.fScorePrettyPrint(fscore)  
             else:
-                print("{}: {} EPS is negative, we're done.".format(ticker, temp.overview["EPS"]))
+                print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
         except:
             print("{}: something went wrong.". format(ticker))            
 
         sys.stdout.flush()
-        apiCount += temp.getApiCount()
+        apiCount += thisStonk.getApiCount()
         if (apiCount > 400):
             print("API count limit reached.")
             break
