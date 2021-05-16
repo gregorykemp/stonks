@@ -22,6 +22,7 @@
 import json
 # Here we pull the class to get fundamentals data from Alpha Vantage.
 from alpha_vantage.fundamentaldata import FundamentalData
+from alpha_vantage.timeseries import TimeSeries
 # We use the sleep method on this object.
 import time
 # This is used for fitting a line to data.
@@ -53,6 +54,7 @@ class stonks:
 
         # Make connection to Alpha Vantage.
         self.fundamentals = FundamentalData(key=api_key, output_format='json')
+        self.timeSeries = TimeSeries(key=api_key, output_format='json')
         if (self.verbose):
             print("Debug: {}", self.fundamentals.output_format)
 
@@ -63,6 +65,7 @@ class stonks:
         self.balance = {}
         self.cashflow = {}
         self.annualCashflow = {}
+        self.dailyPrice = {}
 
         # Do this as many times as we have to to get a valid result.
         retryFlag = 0
@@ -128,6 +131,18 @@ class stonks:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
         self.apiCount += 1
+
+    # This is similar, getting price history (adjusted for splits and dividends)
+    # if needed. 
+
+    def getDailyPrices(self):
+        while (len(self.dailyPrice.keys()) == 0):
+            try:
+                self.dailyPrice, self.dailyPrice_meta = self.timeSeries.get_daily_adjusted(symbol=self.symbol)
+            except ValueError:
+                print("Sleeping for 1 minute.")
+                time.sleep(60)
+            self.apiCount += 1
 
     # This gets the earnings data from Alpha Vantage.
 
