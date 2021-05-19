@@ -30,8 +30,9 @@ import numpy
 Polynomial = numpy.polynomial.Polynomial
 
 # charts and graphs
-# import matplotlib.pyplot as plt 
-
+import matplotlib.pyplot as plt 
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.ticker import ScalarFormatter
 # And this is the class itself.
 
 class stonks:
@@ -66,6 +67,7 @@ class stonks:
         self.cashflow = {}
         self.annualCashflow = {}
         self.dailyPrice = {}
+        self.weeklyPrice = {}
 
         # Do this as many times as we have to to get a valid result.
         retryFlag = 0
@@ -134,11 +136,23 @@ class stonks:
 
     # This is similar, getting price history (adjusted for splits and dividends)
     # if needed. 
+    # gkemp FIXME can we deprecate this and only use weekly prices?
 
     def getDailyPrices(self):
         while (len(self.dailyPrice.keys()) == 0):
             try:
                 self.dailyPrice, self.dailyPrice_meta = self.timeSeries.get_daily_adjusted(symbol=self.symbol)
+            except ValueError:
+                print("Sleeping for 1 minute.")
+                time.sleep(60)
+            self.apiCount += 1
+
+    # This pulls weekly prices.
+
+    def getWeeklyPrices(self):
+        while (len(self.weeklyPrice.keys()) == 0):
+            try:
+                self.weeklyPrice, self.weeklyPrice_meta = self.timeSeries.get_weekly_adjusted(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
@@ -520,3 +534,112 @@ class stonks:
             print("DCF intrinsic value estimate: {:.02f}".format(discountedCashFlow))
 
         return discountedCashFlow  
+
+    # This method draws a BMW Chart for the stonk.
+    # More info here: https://invest.kleinnet.com/bmw1/
+    # Summary is we fit a line to the log of the historical share price to make price predictions.
+
+    def bmwChart(self):
+
+        # Get weekly data if we don't have it already.
+        if (len(self.weeklyPrice.keys()) == 0):
+            self.getWeeklyPrices()
+        
+        # This returns pandas formatted data.  I need numpy arrays.  lists as an intermediary.
+
+        myDateList = []
+        myPriceList = []
+
+        # Now pull the list data explicitly from the pandas formatted data.
+        # Cast type as needed.
+        count1 = 0
+        for index in self.weeklyPrice.keys():
+            # gkemp FIXME if verbose ...
+            # print("{} : {}".format(index, self.weeklyPrice[index]['5. adjusted close']))
+            # Only two x axis ticks per year.
+            if (count1 % 26 == 0):
+                myDateList.append(str(index))
+            count1 += 1
+            myPriceList.append(float(self.weeklyPrice[index]['5. adjusted close']))
+
+        # But the data is backwards. Reverse it.
+        myDateList.reverse()
+        myPriceList.reverse()
+
+        print(myDateList)
+
+        # I need a numpy array, not a list.
+        myPrices = numpy.array(myPriceList)
+        # And because the data grows geometrically we want the log of the original data.
+        myLogPrices = numpy.log(myPrices)
+
+        # Now that we're in arithmetic space we can fit a simple line.
+        pfit = Polynomial.fit(range(0, len(myPriceList)), myLogPrices, 1, window=(0, len(myPriceList)), domain=(0, len(myPriceList)))
+        # extract results
+        m = float(pfit.coef[1])
+        b = float(pfit.coef[0])
+
+        # print("debug: m={} b={}".format(m, b))
+
+        # Define a range for the plot, would prefer it was dates.
+        x = numpy.arange(0, len(myPriceList))
+        
+        # I also want the standard deviation of the input data.
+        sigma = numpy.std(myLogPrices) 
+        # print("debug: sigma={}".format(sigma))
+
+        # I don't know that this is necessary. It does make the linter happy.
+        myLogLineList = []
+        myLogPlus1Sigma = []
+        myLogPlus2Sigma = []
+        myLogMinus1Sigma = []
+        myLogMinus2Sigma = []
+        
+        # Make a list of log predicted price points
+        for index in range(0, len(myPriceList)):
+            temp = m*index + b
+            myLogLineList.append(temp)
+            myLogPlus1Sigma.append(temp + sigma)
+            myLogPlus2Sigma.append(temp + 2 * sigma)
+            myLogMinus1Sigma.append(temp - sigma)
+            myLogMinus2Sigma.append(temp - 2* sigma)
+
+        # print("debug: point 4")
+
+        # Convert lists to arrays.
+        myLogLineArray = numpy.array(myLogLineList)
+        myLogPlus1Array = numpy.array(myLogPlus1Sigma)
+        myLogPlus2Array = numpy.array(myLogPlus2Sigma)
+        myLogMinus1Array = numpy.array(myLogMinus1Sigma)
+        myLogMinus2Array = numpy.array(myLogMinus2Sigma)
+
+        # Draw a linear graph
+        # FIXME list:
+        # Need to fix y-axis grid lines.
+        # Need to fix format of y-axis labels.
+        # Need valid x-axis labels.  One per year.
+        # Add a CAGR estimation for the range of data we have.
+        # Print terminal values for all the lines as labeled data points.
+        # Label the chart with ticker symbol and full name.
+        # Plot two charts, one log and one linear, stacked vertically.
+        # Set legend location outside of plot area.
+        plt.plot(x, myPrices, label="price", color="blue")
+        plt.plot(x, numpy.exp(myLogLineArray), label="best fit line", color="red")
+        plt.plot(x, numpy.exp(myLogPlus1Array), label="+1 RMS", color="green", linestyle='dashed')
+        plt.plot(x, numpy.exp(myLogPlus2Array), label="+2 RMS", color="green", linestyle='solid')
+        plt.plot(x, numpy.exp(myLogMinus1Array), label="-1 RMS", color="green", linestyle='dashed')
+        plt.plot(x, numpy.exp(myLogMinus2Array), label="-2 RMS", color="green", linestyle='solid')
+        # FIXME I don't think subs does what I want.
+        plt.yscale("log", subs=[2,4,6,8])
+        # plt.axes.set_major_formatter(ScalarFormatter())
+        # This doesn't work
+        # plt.xticks(numpy.arange(0, len(myDateList)), myDateList)
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+
+
+
+
+
