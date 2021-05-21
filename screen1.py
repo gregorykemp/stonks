@@ -59,8 +59,10 @@ def main():
                     thisStonk.fScorePrettyPrint(fscore)  
             else:
                 print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
+                continue
         except:
-            print("{}: something went wrong.". format(ticker))            
+            print("{}: something went wrong.". format(ticker))
+            continue            
 
         # For high scoring stonks, go a step further.
         if (sum(fscore) > 5):
