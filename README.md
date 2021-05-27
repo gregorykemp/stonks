@@ -56,10 +56,18 @@ If you assume a growth rate, you can project potential earnings, discount those 
 
 So with these limitations in mind, we follow the recipe and predict an intrinsic value based on a provided growth rate estimate.  We use current EPS for earnings.  Ideally we'd use free cash flow, but that's harder to estimate, requires more API reads (respect the free tier), and in the end provides a degree of accuracy you really can't assume here.  For value investing, you want to buy at a discount to intrinsic value.  We don't have to be exactly right on this.  Mostly right will do.
 
+## BMW Charts
+
+BMW charts are hard to explain succinctly.  Summary is we fit a line to the log of the historical share price to make price predictions.  Based on standard deviations, we can estimate if the price is too high or too low.
+
+More info here: https://invest.kleinnet.com/bmw1/
+
+
 # Other programs
 
 Other programs in this repo make use of stonks:
 * stonks.py -- library defining the class, used by other programs.
 * basics.py -- dumps out overview information on stocks listed on command line.
 * fscore.py -- reports Piotrosky f-score for stocks listed on command line.
-
+* screen1.py -- looks for stocks with high f-scores whose recent price is below estimated intrinsic value.
+* bmw1.py -- draws a BMW chart for the named stocks.
