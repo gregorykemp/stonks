@@ -35,7 +35,11 @@ def main():
         # gkemp FIXME catch errors here.
         thisStonk = stonks(ticker, api_key)
 
-        thisStonk.bmwChart()
+        result = thisStonk.bmwChart()
+        print("recent price: ${:.02f}".format(result[2]))
+        print("forecast price: ${:.02f}".format(result[3]))
+        print("price CAGR: {:.02f}%".format(result[1]))
+        print("forecast CAGR: {:.02f}%".format(result[0]))
 
 if __name__ == "__main__":
     main()

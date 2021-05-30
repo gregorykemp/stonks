@@ -538,7 +538,7 @@ class stonks:
     # More info here: https://invest.kleinnet.com/bmw1/
     # Summary is we fit a line to the log of the historical share price to make price predictions.
 
-    def bmwChart(self):
+    def bmwChart(self, chart=True):
 
         # Get weekly data if we don't have it already.
         if (len(self.weeklyPrice.keys()) == 0):
@@ -609,48 +609,62 @@ class stonks:
         myLogMinus1Array = numpy.array(myLogMinus1Sigma)
         myLogMinus2Array = numpy.array(myLogMinus2Sigma)
 
-        # Draw a linear graph
-        # FIXME list:
-        # Plot two charts, one log and one linear, stacked vertically.
-        # Set legend location outside of plot area.
-        
         # We use this repeatedly, save it here.
         last = len(myDateList) - 1
-        # Plot actual historical prices.
-        plt.plot(x, myPrices, label="price", color="blue")
-        plt.text(x[last], myPrices[last], "${:.02f}".format(myPrices[last]), color="blue")
-        # Plot best fit line.
-        plt.plot(x, numpy.exp(myLogLineArray), label="best fit line", color="red")
-        plt.text(x[last], numpy.exp(myLogLineArray)[last], "${:.02f}".format(numpy.exp(myLogLineArray)[last]), color="red")
-        # And the +/- sigma lines.
-        plt.plot(x, numpy.exp(myLogPlus1Array), label="+1 RMS", color="green", linestyle='dashed')
-        plt.text(x[last], numpy.exp(myLogPlus1Array)[last], "${:.02f}".format(numpy.exp(myLogPlus1Array)[last]), color="green")
-        plt.plot(x, numpy.exp(myLogPlus2Array), label="+2 RMS", color="green", linestyle='solid')
-        plt.text(x[last], numpy.exp(myLogPlus2Array)[last], "${:.02f}".format(numpy.exp(myLogPlus2Array)[last]), color="green")
-        plt.plot(x, numpy.exp(myLogMinus1Array), label="-1 RMS", color="green", linestyle='dashed')
-        plt.text(x[last], numpy.exp(myLogMinus1Array)[last], "${:.02f}".format(numpy.exp(myLogMinus1Array)[last]), color="green")
-        plt.plot(x, numpy.exp(myLogMinus2Array), label="-2 RMS", color="green", linestyle='solid')
-        plt.text(x[last], numpy.exp(myLogMinus2Array)[last], "${:.02f}".format(numpy.exp(myLogMinus2Array)[last]), color="green")
-        # Set tick scale for Y axis.
-        plt.yscale("log", subs=[2,4,6,8])
-        # Set tick labels for X axis.  Limit the number of labels printed.
-        plt.xticks(numpy.arange(0, len(myDateList)), myDateList)
-        plt.locator_params(axis='x', nbins=10)
-        # Set chart title.
-        plt.title("BMW Chart for {} ({})".format(self.overview['Name'], self.symbol.upper()))
-        # Turn on grids.  I want heaver grid action on the Y axis.
-        plt.grid(b=True, axis='x', which='major')
-        plt.grid(b=True, axis='y', which='both')
-        # CAGRs        
-        trueCAGR = ((myPrices[last]/myPrices[0]) ** (1/years) - 1) * 100
-        fitCAGR = ((numpy.exp(myLogLineArray[last])/numpy.exp(myLogLineArray[0])) ** (1/years) - 1) * 100
-        plt.plot(0, 0, label="true CAGR: {:.02f}%".format(trueCAGR), color="white")
-        plt.plot(0, 0, label="fit CAGR: {:.02f}%".format(fitCAGR), color="white")
-        # Yes, legends.
-        plt.legend()
-        plt.show()
 
+        # CAGRs, needed whether we draw a chart or not.
+        trueCAGR = float(((myPrices[last]/myPrices[0]) ** (1/years) - 1) * 100)
+        fitCAGR = float(((numpy.exp(myLogLineArray[last])/numpy.exp(myLogLineArray[0])) ** (1/years) - 1) * 100)
 
+        # So we have to return something now.  Chart is optional.
+        result = []                                                 # a de facto type declaration
+        result.append(fitCAGR)                                      # the CAGR of the line we fit to the log of the prices
+        result.append(trueCAGR)                                     # the CAGR of the actual price data
+        result.append(float(myPrices[last]))                        # the last price we got from Alpha Vantage
+        result.append(float(numpy.exp(myLogLineArray[last])))       # the last price on the line fit to the log of the prices
 
+        # Draw a linear graph, maybe.
+        if chart:
+            # FIXME list:
+            # Plot two charts, one log and one linear, stacked vertically.
+            # Set legend location outside of plot area.
+            # Fix y-axix label format.
+            
+            # Plot actual historical prices.
+            plt.plot(x, myPrices, label="price", color="blue")
+            plt.text(x[last], myPrices[last], "${:.02f}".format(myPrices[last]), color="blue")
+            # Plot best fit line.
+            plt.plot(x, numpy.exp(myLogLineArray), label="best fit line", color="red")
+            plt.text(x[last], numpy.exp(myLogLineArray)[last], "${:.02f}".format(numpy.exp(myLogLineArray)[last]), color="red")
+            # And the +/- sigma lines.
+            plt.plot(x, numpy.exp(myLogPlus1Array), label="+1 RMS", color="green", linestyle='dashed')
+            plt.text(x[last], numpy.exp(myLogPlus1Array)[last], "${:.02f}".format(numpy.exp(myLogPlus1Array)[last]), color="green")
+            plt.plot(x, numpy.exp(myLogPlus2Array), label="+2 RMS", color="green", linestyle='solid')
+            plt.text(x[last], numpy.exp(myLogPlus2Array)[last], "${:.02f}".format(numpy.exp(myLogPlus2Array)[last]), color="green")
+            plt.plot(x, numpy.exp(myLogMinus1Array), label="-1 RMS", color="green", linestyle='dashed')
+            plt.text(x[last], numpy.exp(myLogMinus1Array)[last], "${:.02f}".format(numpy.exp(myLogMinus1Array)[last]), color="green")
+            plt.plot(x, numpy.exp(myLogMinus2Array), label="-2 RMS", color="green", linestyle='solid')
+            plt.text(x[last], numpy.exp(myLogMinus2Array)[last], "${:.02f}".format(numpy.exp(myLogMinus2Array)[last]), color="green")
+            # Set tick scale for Y axis.
+            plt.yscale("log", subs=[2,4,6,8])
+            # Set tick labels for X axis.  Limit the number of labels printed.
+            plt.xticks(numpy.arange(0, len(myDateList)), myDateList)
+            plt.locator_params(axis='x', nbins=10)
+            # Set chart title.
+            plt.title("BMW Chart for {} ({})".format(self.overview['Name'], self.symbol.upper()))
+            # Turn on grids.  I want heaver grid action on the Y axis.
+            plt.grid(b=True, axis='x', which='major')
+            plt.grid(b=True, axis='y', which='both')
+            # CAGRs        
+            plt.plot(0, 0, label="true CAGR: {:.02f}%".format(trueCAGR), color="white")
+            plt.plot(0, 0, label="fit CAGR: {:.02f}%".format(fitCAGR), color="white")
+            # Yes, legends.
+            plt.legend()
+            plt.show()            
+        
+        # Always return this result, though.
+        return result
 
+    # end of bmwChart
 
+# end of stonks
