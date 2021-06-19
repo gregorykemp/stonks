@@ -74,10 +74,11 @@ class stonks:
             try:
                 # This throws a warning but the code is correct.
                 self.overview, self.overview_meta = self.fundamentals.get_company_overview(symbol=self.symbol)
-            except ValueError:
+            except ValueError as myError:
                 # This likely means we hit the API access limit.  Wait one minute.
                 # gkemp FIXME need to make this an option in case users have paid access.
                 # In that case we can pop out immediately on ValueError.
+                print(myError)
                 time.sleep(60)
                 retryFlag += 1
         self.apiCount += 1
@@ -556,17 +557,17 @@ class stonks:
             # print("{} : {}".format(index, self.weeklyPrice[index]['5. adjusted close']))
             myDateList.append(str(index))
             myPriceList.append(float(self.weeklyPrice[index]['5. adjusted close']))
-
+            
         # But the data is backwards. Reverse it.
         myDateList.reverse()
         myPriceList.reverse()
 
-        # print(myDateList)
         years = float(len(myDateList)/52)
 
         # I need a numpy array, not a list.
         myPrices = numpy.array(myPriceList)
         # And because the data grows geometrically we want the log of the original data.
+        # log returns natural log.
         myLogPrices = numpy.log(myPrices)
 
         # Now that we're in arithmetic space we can fit a simple line.
@@ -575,15 +576,9 @@ class stonks:
         m = float(pfit.coef[1])
         b = float(pfit.coef[0])
 
-        # print("debug: m={} b={}".format(m, b))
-
         # Define a range for the plot, would prefer it was dates.
         x = numpy.arange(0, len(myPriceList))
         
-        # I also want the standard deviation of the input data.
-        sigma = numpy.std(myLogPrices) 
-        # print("debug: sigma={}".format(sigma))
-
         # I don't know that this is necessary. It does make the linter happy.
         myLogLineList = []
         myLogPlus1Sigma = []
@@ -591,16 +586,35 @@ class stonks:
         myLogMinus1Sigma = []
         myLogMinus2Sigma = []
         
-        # Make a list of log predicted price points
+        # Make a list of log predicted price points.
         for index in range(0, len(myPriceList)):
             temp = m*index + b
             myLogLineList.append(temp)
-            myLogPlus1Sigma.append(temp + sigma)
-            myLogPlus2Sigma.append(temp + 2 * sigma)
-            myLogMinus1Sigma.append(temp - sigma)
-            myLogMinus2Sigma.append(temp - 2* sigma)
 
-        # print("debug: point 4")
+        # I also want the standard deviation of the difference between the 
+        # prices vs. the expected values. There is probably a better way of 
+        # doing this. I need the root mean square here. I'm not convinced 
+        # numpy is doing exactly what I want. I need the square of the 
+        # differences between the actual and predicted values. That's what we 
+        # do here:
+        tempList = []
+        for index in range(0, len(myPriceList)):
+            tempList.append((myLogPrices[index] - myLogLineList[index]) ** 2)
+        # Now I take the square root of the average of the contents of the list.
+        # For a weakly typed language, I sure do have to do a lot of type 
+        # conversions to make these things work out.
+        sigma = float(numpy.sqrt(numpy.average(numpy.array(tempList))))
+        
+        if (self.verbose):
+            print("debug: sigma={}".format(sigma))
+
+        # Use the previously computed predicted price points and sigma to 
+        # compute +/- RMS lines, too.  Still in log space.
+        for index in range(0, len(myPriceList)):
+            myLogPlus1Sigma.append(myLogLineList[index] + sigma)
+            myLogPlus2Sigma.append(myLogLineList[index] + 2 * sigma)
+            myLogMinus1Sigma.append(myLogLineList[index] - sigma)
+            myLogMinus2Sigma.append(myLogLineList[index] - 2* sigma)
 
         # Convert lists to arrays.
         myLogLineArray = numpy.array(myLogLineList)
