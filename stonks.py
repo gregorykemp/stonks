@@ -685,8 +685,6 @@ class stonks:
             for index in yAxisTicks:
                 yAxisLabels.append("${}".format(index))
 
-            print("DEBUG: myDateList size = {}".format(len(myDateList)))
-
             # Plot actual historical prices.
             plt.plot(x, myPrices, label="price", color="blue")
             plt.text(x[last], myPrices[last], "${:.02f}".format(myPrices[last]), color="blue")
