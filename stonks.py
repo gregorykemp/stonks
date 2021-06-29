@@ -32,6 +32,8 @@ Polynomial = numpy.polynomial.Polynomial
 # charts and graphs
 import matplotlib.pyplot as plt 
 from matplotlib.colors import LinearSegmentedColormap
+from math import ceil, floor, log10
+
 # And this is the class itself.
 
 class stonks:
@@ -585,11 +587,19 @@ class stonks:
         myLogPlus2Sigma = []
         myLogMinus1Sigma = []
         myLogMinus2Sigma = []
+
+        # I need min and max values across all five data series. Since we're 
+        # building them here, compute min and max along the way. I'll use this
+        # later to label the Y axis of the chart.
+        yAxisMin = 1000000000
+        yAxisMax = 0
         
         # Make a list of log predicted price points.
         for index in range(0, len(myPriceList)):
             temp = m*index + b
             myLogLineList.append(temp)
+            yAxisMin = min(yAxisMin, temp)
+            yAxisMax = max(yAxisMax, temp)
 
         # I also want the standard deviation of the difference between the 
         # prices vs. the expected values. There is probably a better way of 
@@ -615,6 +625,14 @@ class stonks:
             myLogPlus2Sigma.append(myLogLineList[index] + 2 * sigma)
             myLogMinus1Sigma.append(myLogLineList[index] - sigma)
             myLogMinus2Sigma.append(myLogLineList[index] - 2* sigma)
+            yAxisMin = min(yAxisMin, myLogPlus1Sigma[index])
+            yAxisMax = max(yAxisMax, myLogPlus1Sigma[index])
+            yAxisMin = min(yAxisMin, myLogPlus2Sigma[index])
+            yAxisMax = max(yAxisMax, myLogPlus2Sigma[index])
+            yAxisMin = min(yAxisMin, myLogMinus1Sigma[index])
+            yAxisMax = max(yAxisMax, myLogMinus1Sigma[index])
+            yAxisMin = min(yAxisMin, myLogMinus2Sigma[index])
+            yAxisMax = max(yAxisMax, myLogMinus2Sigma[index])
 
         # Convert lists to arrays.
         myLogLineArray = numpy.array(myLogLineList)
@@ -642,25 +660,53 @@ class stonks:
             # FIXME list:
             # Plot two charts, one log and one linear, stacked vertically.
             # Set legend location outside of plot area.
-            # Fix y-axix label format.
+
+            # Determine range for y axis.
+            yAxisMinimum = 10*floor(numpy.exp(yAxisMin)/10)
+            yAxisMaximum = 10*ceil(numpy.exp(yAxisMax)/10)
+            yAxisLabelsFull = [ 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000 ]
+
+            # Search up for lower bound.
+            lowerBound = 0
+            while (yAxisMinimum > yAxisLabelsFull[lowerBound]):
+                lowerBound += 1
             
+            # Repeat for upper bound.
+            upperBound = 0
+            while (yAxisMaximum > yAxisLabelsFull[upperBound]):
+                upperBound += 1
+            upperBound += 1
+
+            # It's this easy, right?
+            yAxisTicks = yAxisLabelsFull[lowerBound:upperBound]
+
+            # Now make text labels for this.
+            yAxisLabels = []
+            for index in yAxisTicks:
+                yAxisLabels.append("${}".format(index))
+
+            print("DEBUG: myDateList size = {}".format(len(myDateList)))
+
             # Plot actual historical prices.
             plt.plot(x, myPrices, label="price", color="blue")
             plt.text(x[last], myPrices[last], "${:.02f}".format(myPrices[last]), color="blue")
             # Plot best fit line.
-            plt.plot(x, numpy.exp(myLogLineArray), label="best fit line", color="red")
-            plt.text(x[last], numpy.exp(myLogLineArray)[last], "${:.02f}".format(numpy.exp(myLogLineArray)[last]), color="red")
+            plt.plot(x, numpy.exp(myLogLineArray), label="best fit line", color="black")
+            plt.text(x[last], numpy.exp(myLogLineArray)[last], "${:.02f}".format(numpy.exp(myLogLineArray)[last]), color="black")
             # And the +/- sigma lines.
-            plt.plot(x, numpy.exp(myLogPlus1Array), label="+1 RMS", color="green", linestyle='dashed')
-            plt.text(x[last], numpy.exp(myLogPlus1Array)[last], "${:.02f}".format(numpy.exp(myLogPlus1Array)[last]), color="green")
-            plt.plot(x, numpy.exp(myLogPlus2Array), label="+2 RMS", color="green", linestyle='solid')
-            plt.text(x[last], numpy.exp(myLogPlus2Array)[last], "${:.02f}".format(numpy.exp(myLogPlus2Array)[last]), color="green")
+            plt.plot(x, numpy.exp(myLogPlus1Array), label="+1 RMS", color="red", linestyle='dashed')
+            plt.text(x[last], numpy.exp(myLogPlus1Array)[last], "${:.02f}".format(numpy.exp(myLogPlus1Array)[last]), color="red")
+            plt.plot(x, numpy.exp(myLogPlus2Array), label="+2 RMS", color="red", linestyle='solid')
+            plt.text(x[last], numpy.exp(myLogPlus2Array)[last], "${:.02f}".format(numpy.exp(myLogPlus2Array)[last]), color="red")
             plt.plot(x, numpy.exp(myLogMinus1Array), label="-1 RMS", color="green", linestyle='dashed')
             plt.text(x[last], numpy.exp(myLogMinus1Array)[last], "${:.02f}".format(numpy.exp(myLogMinus1Array)[last]), color="green")
             plt.plot(x, numpy.exp(myLogMinus2Array), label="-2 RMS", color="green", linestyle='solid')
             plt.text(x[last], numpy.exp(myLogMinus2Array)[last], "${:.02f}".format(numpy.exp(myLogMinus2Array)[last]), color="green")
             # Set tick scale for Y axis.
-            plt.yscale("log", subs=[2,4,6,8])
+            plt.yscale("log")
+            # yticks is what I want. This sets the values and labels for the y axis. 
+            # Didn't expect I'd need to build this myself.
+            plt.yticks(yAxisTicks, yAxisLabels, color="gray")
             # Set tick labels for X axis.  Limit the number of labels printed.
             plt.xticks(numpy.arange(0, len(myDateList)), myDateList)
             plt.locator_params(axis='x', nbins=10)
