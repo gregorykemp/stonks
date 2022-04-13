@@ -203,8 +203,9 @@ class stonks:
 
         # Verbose report
         if (self.verbose):
-            print("\tdebug: net income = {:,}".format(netIncome))
-            print("\tdebug: current assets = {:,}".format(currentAssets))
+            print("fscore1: return on assets is positive: {}".format(result))
+            print("\tnet income = {:,}".format(netIncome))
+            print("\tcurrent assets = {:,}".format(currentAssets))
 
         return result
         
@@ -221,7 +222,8 @@ class stonks:
         
         # verbose report
         if (self.verbose):
-            print("\tdebug: operating cash flow = {:,}".format(int(self.cashflow["operatingCashflow"][0])))
+            print("fscore2: operating cash flow is positive: {}".format(result))
+            print("\toperating cash flow = {:,}".format(int(self.cashflow["operatingCashflow"][0])))
         
         return result
 
@@ -244,8 +246,9 @@ class stonks:
         
         # verbose report
         if (self.verbose):
-            print("\tdebug: ROA this year: {}".format(roaThisYear))
-            print("\tdebug: ROA last year: {}".format(roaLastYear))
+            print("fscore3: ROA greater this year than last year: {}".format(result))
+            print("\tROA this year: {}".format(roaThisYear))
+            print("\tROA last year: {}".format(roaLastYear))
 
         return result
 
@@ -268,9 +271,10 @@ class stonks:
         
         # verbose report
         if (self.verbose):
-            print("\tdebug: operating cash flow = {:,}".format(int(self.cashflow["operatingCashflow"][0])))
-            print("\tdebug: total assets = {:,}".format(int(totalAssets)))
-            print("\tdebug: ROA this year = {}".format(roaThisYear))
+            print("fscore4: operating cash flow/total assets > ROA: {}".format(result))
+            print("\toperating cash flow = {:,}".format(int(self.cashflow["operatingCashflow"][0])))
+            print("\ttotal assets = {:,}".format(int(totalAssets)))
+            print("\tROA this year = {}".format(roaThisYear))
 
         return result
 
@@ -300,8 +304,9 @@ class stonks:
 
         # verbose report
         if (self.verbose):
-            print("\tdebug: this year's LTLR = {}".format(thisYearLTLR))
-            print("\tdebug: last year's LTLR = {}".format(lastYearLTLR))
+            print("fscore5: long-term leverage ratio is lower this year vs. last year: {}".format(result))
+            print("\tthis year's LTLR = {}".format(thisYearLTLR))
+            print("\tlast year's LTLR = {}".format(lastYearLTLR))
 
         return result
 
@@ -322,8 +327,9 @@ class stonks:
 
         # verbose report
         if (self.verbose):
-            print("\tdebug: current ratio this year = {}".format(currentRatioThisYear))
-            print("\tdebug: current ratio last year = {}".format(currentRatioLastYear))
+            print("fscore6: current ratio higher this year vs. last year: {}".format(result))
+            print("\tcurrent ratio this year = {}".format(currentRatioThisYear))
+            print("\tcurrent ratio last year = {}".format(currentRatioLastYear))
 
         return result
 
@@ -342,8 +348,9 @@ class stonks:
 
         # verbose report
         if (self.verbose):
-            print("\tdebug: sharesThisYear = {:,}".format(sharesThisYear))
-            print("\tdebug: sharesLastYear = {:,}".format(sharesLastYear))
+            print("fscore7: not issuing stock: {}".format(result))
+            print("\tsharesThisYear = {:,}".format(sharesThisYear))
+            print("\tsharesLastYear = {:,}".format(sharesLastYear))
 
 
         return result
@@ -363,10 +370,11 @@ class stonks:
 
         # verbose report
         if (self.verbose):
-            print("\tdebug: total revenue this year: {:,}".format(self.income["totalRevenue"][0]))
-            print("\tdebug: total revenue last year: {:,}".format(self.income["totalRevenue"][1]))
-            print("\tdebug: cost of sales this year: {:,}".format(self.income["costOfRevenue"][0]))
-            print("\tdebug: cost of sales last year: {:,}".format(self.income["costOfRevenue"][1]))
+            print("fscore8: gross margin higher this year vs. last year: {}".format(result))
+            print("\ttotal revenue this year: {:,}".format(float(self.income["totalRevenue"][0])))
+            print("\ttotal revenue last year: {:,}".format(float(self.income["totalRevenue"][1])))
+            print("\tcost of sales this year: {:,}".format(float(self.income["costOfRevenue"][0])))
+            print("\tcost of sales last year: {:,}".format(float(self.income["costOfRevenue"][1])))
         
         return result
 
@@ -390,8 +398,11 @@ class stonks:
 
         # verbose report
         if (self.verbose):
-            print("\tdebug: average total assets this year: {}".format(avgTotalAssetsThisYear))
-            print("\tdebug: average total assets last year: {}".format(avgTotalAssetsLastYear))
+            print("fscore9: asset turnover ratio higher this year vs. last year: {}".format(result))
+            print("\taverage total assets this year: {}".format(avgTotalAssetsThisYear))
+            print("\taverage total assets last year: {}".format(avgTotalAssetsLastYear))
+            print("\tasset turnover this year: {:,}".format(assetTurnoverThisYear))
+            print("\tasset turnover last year: {:,}".format(assetTurnoverLastYear))
 
         return result
 
