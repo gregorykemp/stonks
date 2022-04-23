@@ -62,6 +62,8 @@ def main():
                 print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
                 continue
         except:
+            # Since the goal here is to screen a number of stocks we don't spend
+            # a lot of time trying to fix errors.  We log the error and move on.
             print("{}: something went wrong.". format(ticker))
             continue            
 
@@ -70,8 +72,10 @@ def main():
             growthRate = thisStonk.estimateGrowthRate()
             intrinsicValue = thisStonk.discountedCashFlow(growthRate)
             print("{}: {:.02f}% ${:2.02f}".format(ticker, (growthRate*100), intrinsicValue))
-            print("{}".format(thisStonk.getApiCount()))
+            # Really should label debug prints better than this.
+            # print("{}".format(thisStonk.getApiCount()))
 
+            # gkemp FIXME make the growth rate threshold a parameter.
             if (growthRate > 0.15):
                 intrinsicValue = thisStonk.discountedCashFlow(growthRate)
                 # gkemp FIXME
@@ -86,7 +90,7 @@ def main():
                 # this returns a list of dates you could index
                 temp = list(thisStonk.dailyPrice)
                 # and finally, this reads the dictionary in entry 0 (most recent) and returns adjusted price.
-                recentPrice = float(thisStonk.dailyPrice[temp[0]]['5. adjusted close'])
+                recentPrice = float(thisStonk.dailyPrice[temp[0]]['4. close'])
 
                 print("   intrinsic value: ${:.02f}".format(intrinsicValue))
                 print("      recent price: ${:.02f}".format(recentPrice))
@@ -102,13 +106,17 @@ def main():
 
                     # Looking for forecast CAGR above 10% and current price below
                     # long term trend.
+                    # gkemp FIXME again the threshold should be a parameter.
                     if (bmwResult[0] > 10.0) and (bmwResult[3] > bmwResult[2]):
                         # This is the message we want to see in the log file.
                         # Flag it with $$$ since I'm looking for $$$ from my stonks.
                         print("$$$ {} is a candidate!".format(ticker))
 
+        # Flush the pipe. Helpful if debug messages are stuck in the buffer.
         sys.stdout.flush()
         apiCount += thisStonk.getApiCount()
+        # gkemp FIXME again this should be a parameter. If user has premium access 
+        # we don't need to throttle.
         if (apiCount > 400):
             print("API count limit reached.")
             break
