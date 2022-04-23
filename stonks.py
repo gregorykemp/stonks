@@ -143,7 +143,8 @@ class stonks:
     def getDailyPrices(self):
         while (len(self.dailyPrice.keys()) == 0):
             try:
-                self.dailyPrice, self.dailyPrice_meta = self.timeSeries.get_daily_adjusted(symbol=self.symbol)
+                # get_daily_adjusted() is now a premium feature.
+                self.dailyPrice, self.dailyPrice_meta = self.timeSeries.get_daily(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
                 time.sleep(60)
@@ -154,6 +155,8 @@ class stonks:
     def getWeeklyPrices(self):
         while (len(self.weeklyPrice.keys()) == 0):
             try:
+                # So far get_weekly_adjusted() is not premium.  You can replace with get_weekly() if/when
+                # it does go premium, but the lack of split adjustment becomes a big issue on longer time frames.
                 self.weeklyPrice, self.weeklyPrice_meta = self.timeSeries.get_weekly_adjusted(symbol=self.symbol)
             except ValueError:
                 print("Sleeping for 1 minute.")
