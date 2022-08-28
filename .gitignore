@@ -137,3 +137,8 @@ dmypy.json
 # All spreadsheets
 *.xlsx
 *.csv
+
+# little bits to help development
+*.sh
+*.txt
+*.log
