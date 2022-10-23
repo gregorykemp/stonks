@@ -2,7 +2,7 @@
 
 This repo is a project I'm working on for stock analysis, in Pyhton, using Financial Modeling Prep as the data source.  My goal is to get a program that can sift through potential investments and flag them for further review.
 
-## About Alpha Vantage
+## About Financial Modeling Prep
 
 [Financial Modeling Prep website.](https://site.financialmodelingprep.com/)
 
