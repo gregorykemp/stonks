@@ -1,21 +1,22 @@
 # stonks
 
-This repo is a project I'm working on for stock analysis, in Pyhton, using Alpha Vantage as the data source.  My goal is to get a program that can sift through potential investments and flag them for further review.
+This repo is a project I'm working on for stock analysis, in Pyhton, using Financial Modeling Prep as the data source.  My goal is to get a program that can sift through potential investments and flag them for further review.
 
 ## About Alpha Vantage
 
-[Alpha Vantage website and documentation.](https://www.alphavantage.co/)
+[Financial Modeling Prep website.](https://site.financialmodelingprep.com/)
 
-You'll need to get a free API key.  The paid plans are spendy.  My goal is to keep this working within the free tier service.  Save this key in `api_key.txt`.  Get your own key; it's free.
+You'll need to get an API key.  Save this key in `api_key.txt`.  Get your own key; it's free.
 
-[GitHub for the alphavantage package I'm using.](https://github.com/RomelTorres/alpha_vantage/blob/a70f110c4883ffe66f2d1f36571a61c2a90e563d/alpha_vantage/fundamentaldata.py)
+The free tier of service is enough for basic use.  A year of "Starter" tier service works out to $10.50 a month and lists most of the limits you'll run in to as an individual investor.  My goal here was to keep this usable on the free tier.
 
 ## Other Packages Used
 
-If you're using stonks you will also need
-* the above alphavantage package,
+If you're using stonks you will also need these Python libraries:
+* math,
+* matplotlib,
 * numpy, and
-* pandas.
+* requests.
 These are used inside stonks.  You do not have to use them directly.
 
 ## F-Score
@@ -70,4 +71,5 @@ Other programs in this repo make use of stonks:
 * basics.py -- dumps out overview information on stocks listed on command line.
 * fscore.py -- reports Piotrosky f-score for stocks listed on command line.
 * screen1.py -- looks for stocks with high f-scores whose recent price is below estimated intrinsic value.
+* screen2.py -- improved version of screen1, adds check that recent price is below long-term trends.
 * bmw1.py -- draws a BMW chart for the named stocks.

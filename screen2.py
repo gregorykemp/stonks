@@ -51,22 +51,22 @@ def main():
             print("Ticker {} not found in database.".format(ticker))
             continue
 
-        # try:
-        if(thisStonk.getEPS() > 0):
-            fscore = thisStonk.fScore()
-            # Always print the summary score.
-            print("{} f-score: {}".format(ticker, sum(fscore)))
-            # If only one ticker listed, give the expanded report.
-            if (len(tickerList) == 1):
-                thisStonk.fScorePrettyPrint(fscore)  
-        else:
-            print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
-            continue
-        # except:
-        #     # Since the goal here is to screen a number of stocks we don't spend
-        #     # a lot of time trying to fix errors.  We log the error and move on.
-        #     print("{}: something went wrong.". format(ticker))
-        #     continue            
+        try:
+            if(thisStonk.getEPS() > 0):
+                fscore = thisStonk.fScore()
+                # Always print the summary score.
+                print("{} f-score: {}".format(ticker, sum(fscore)))
+                # If only one ticker listed, give the expanded report.
+                if (len(tickerList) == 1):
+                    thisStonk.fScorePrettyPrint(fscore)  
+            else:
+                print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
+                continue
+        except:
+            # Since the goal here is to screen a number of stocks we don't spend
+            # a lot of time trying to fix errors.  We log the error and move on.
+            print("{}: something went wrong.". format(ticker))
+            continue            
 
         # For high scoring stonks, go a step further.
         if (sum(fscore) > 5):
