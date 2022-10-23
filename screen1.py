@@ -50,7 +50,7 @@ def main():
             continue
 
         try:
-            if(float(thisStonk.overview["EPS"]) > 0):
+            if(thisStonk.getEPS() > 0):
                 fscore = thisStonk.fScore()
                 # Always print the summary score.
                 print("{} f-score: {}".format(ticker, sum(fscore)))

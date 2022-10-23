@@ -42,6 +42,7 @@ def main():
 
     # Loop through the list of command line arguments provided.
     for ticker in tickerList:
+        print(ticker)
         # This creates the stonk.  This will return a key error if the ticker 
         # doesn't exist in the Alpha Vantage database.
         try:
@@ -50,42 +51,42 @@ def main():
             print("Ticker {} not found in database.".format(ticker))
             continue
 
-        try:
-            if(float(thisStonk.overview["EPS"]) > 0):
-                fscore = thisStonk.fScore()
-                # Always print the summary score.
-                print("{} f-score: {}".format(ticker, sum(fscore)))
-                # If only one ticker listed, give the expanded report.
-                if (len(tickerList) == 1):
-                    thisStonk.fScorePrettyPrint(fscore)  
-            else:
-                print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
-                continue
-        except:
-            # Since the goal here is to screen a number of stocks we don't spend
-            # a lot of time trying to fix errors.  We log the error and move on.
-            print("{}: something went wrong.". format(ticker))
-            continue            
+        # try:
+        if(thisStonk.getEPS() > 0):
+            fscore = thisStonk.fScore()
+            # Always print the summary score.
+            print("{} f-score: {}".format(ticker, sum(fscore)))
+            # If only one ticker listed, give the expanded report.
+            if (len(tickerList) == 1):
+                thisStonk.fScorePrettyPrint(fscore)  
+        else:
+            print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
+            continue
+        # except:
+        #     # Since the goal here is to screen a number of stocks we don't spend
+        #     # a lot of time trying to fix errors.  We log the error and move on.
+        #     print("{}: something went wrong.". format(ticker))
+        #     continue            
 
         # For high scoring stonks, go a step further.
         if (sum(fscore) > 5):
+            # gkemp FIXME need to scrub this method
             growthRate = thisStonk.estimateGrowthRate()
+            # gkemp FIXME need to scrub this method too
             intrinsicValue = thisStonk.discountedCashFlow(growthRate)
             print("{}: {:.02f}% ${:2.02f}".format(ticker, (growthRate*100), intrinsicValue))
-            # Really should label debug prints better than this.
-            # print("{}".format(thisStonk.getApiCount()))
 
             # gkemp FIXME make the growth rate threshold a parameter.
             if (growthRate > 0.15):
-                intrinsicValue = thisStonk.discountedCashFlow(growthRate)
+                # we already did this
+                # intrinsicValue = thisStonk.discountedCashFlow(growthRate)
                 # gkemp FIXME
+                # We likely already have daily prices for this name. 
+                # Add a helper function to get recent close.  May also be on overview.
                 # might want to wrap this up better.  All this to get recent close.
                 # this reads the database and gets recent prices.
                 # recentPrice = thisStonk.getRecentPrice()
                 # wouldn't need daily results for this.
-                # gkemp FIXME
-                # also this gets me less than six months of price date.  I want that 20-year view.
-                # You need weekly or monthly series for that.
                 thisStonk.getDailyPrices()
                 # this returns a list of dates you could index
                 temp = list(thisStonk.dailyPrice)

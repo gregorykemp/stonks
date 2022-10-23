@@ -33,10 +33,23 @@ def main():
     # Loop through the list of command line arguments provided.
     for ticker in (sys.argv[1:]):
         # gkemp FIXME catch errors here.
-        temp = stonks(ticker, api_key)
+        temp = stonks(ticker, api_key, verbose=True)
 
         # dump overview data.
-        temp.dumpOverview()        
+        temp.dumpOverview()   
+        # temp.getBalance()
+        # temp.dumpBalanceSheet()
+        # temp.getIncome()     
+        # temp.getCashFlow()
+        # print("recent price: {}".format(temp.getRecentPrice()))
+
+        # temp.getDailyPrice()
+        # growthRate = temp.estimateGrowthRate()
+        # print("growth rate: {}".format(growthRate))
+        # print("DCF: {}".format(temp.discountedCashFlow(growthRate)))
+
+        # temp.bmwChart()
+
 
 if __name__ == "__main__":
     main()

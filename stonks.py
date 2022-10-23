@@ -1,6 +1,6 @@
 # stonks.py
 #
-# A Python library to get stock data from Alpha Vantage.
+# A Python library to get stock data from Financial Modeling Prep.
 # https://github.com/gregorykemp/stonks
 # 
 # Copyright 2021 Gregory A. Kemp
@@ -17,14 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# We The alpha_vantage class returns data in JSON format.  Also sometimes pandas
-# although you'll never touch the pandas results.
-import json
-# Here we pull the class to get fundamentals data from Alpha Vantage.
-from alpha_vantage.fundamentaldata import FundamentalData
-from alpha_vantage.timeseries import TimeSeries
-# We use the sleep method on this object.
-import time
+# Python library for REST API requests
+import requests
+
 # This is used for fitting a line to data.
 import numpy
 Polynomial = numpy.polynomial.Polynomial
@@ -45,125 +40,141 @@ class stonks:
         # Initialize API count
         self.apiCount = 0
 
+        # Save this, you'll need it later
+        self.api_key = api_key
+
         # validate input symbol
         if (type(symbol) != str):
             raise ValueError("Can't understand symbol {}".format(str(symbol)))
-        self.symbol = symbol
+        self.symbol = symbol.upper()
 
         # Sign on.
         if (self.verbose):
             print("I am a stonk and my symbol is {}".format(self.symbol))
+        
+        temp1 = self._fmp_api("profile")
+        self.overview = temp1[0]
 
-        # Make connection to Alpha Vantage.
-        self.fundamentals = FundamentalData(key=api_key, output_format='json')
-        self.timeSeries = TimeSeries(key=api_key, output_format='json')
         if (self.verbose):
-            print("Debug: {}", self.fundamentals.output_format)
+            print("Name: {}".format(self.overview['companyName']))
+        
 
         # Initialize some fields.
-        # Start with an empty dictionary.
-        self.overview = {}
+        # Start with an empty dictionary.  We don't actually fetch these until
+        # they're used to economize on API calls.
         self.income = {}
         self.balance = {}
         self.cashflow = {}
         self.annualCashflow = {}
         self.dailyPrice = {}
-        self.weeklyPrice = {}
 
-        # Do this as many times as we have to to get a valid result.
-        retryFlag = 0
-        while ((not self.overview) and (retryFlag < 2)):
-            try:
-                # This throws a warning but the code is correct.
-                self.overview, self.overview_meta = self.fundamentals.get_company_overview(symbol=self.symbol)
-            except ValueError as myError:
-                # This likely means we hit the API access limit.  Wait one minute.
-                # gkemp FIXME need to make this an option in case users have paid access.
-                # In that case we can pop out immediately on ValueError.
-                print(myError)
-                time.sleep(60)
-                retryFlag += 1
+    # This wraps up API calls to the service.
+    def _fmp_api(self, query, verbose=False):
+        
+        # Build an API call.
+        # Symbol has to be uppercase.  We covered that in the stonk init method.
+        myApiCall = "https://financialmodelingprep.com/api/v3/{}/{}".format(query, self.symbol)
+
+        if (verbose):
+            print("myApiCall = {}".format(myApiCall))
+        
+        # Make the API call.
+        payload = {'apikey':self.api_key}
+        response = requests.get(myApiCall, params=payload)
+
+        if (verbose):
+            print("status code = {}".format(response.status_code))
+        
+        # Process status code.  Well, mostly, blow yourself up if it's not success.
+        if (response.status_code != 200):
+            print("Error: bad API status code {}.".format(response.status_code))
+            raise AssertionError
+        
+        # Bump API count for this stonk.
+        # gkemp FIXME : refactor and move this to a singleton for all stonks.
         self.apiCount += 1
 
-        # Try to validate results of the above retry loop.
-        if (len(self.overview.keys()) == 0):
-            raise KeyError("Count not find " + symbol + " in Alpha Vantage.")
-
-        # verify we have a valid ticker before proceeding.  This should be
-        # redundant code.
-        if (self.overview["Symbol"].lower() != self.symbol.lower()):
-            raise ValueError("couldn't find symbol "+ self.symbol + " in Alpha Vantage")
+        # return the result.
+        return response.json()
 
 
-    # This helper function reads the income statement from Alpha Vantage.
+    # This helper function reads the income statement from Financial Modeling Prep.
     # This, and the next two functions, just return if the data has already
-    # been downloaded from AlphaVantage.
+    # been downloaded.  I might be able to condense this down to one function
+    # if I didn't need the result to go to a different member.
 
     def getIncome(self):
-        # I should be able to do "while (not self.income)" but that returned 
-        # a weird, vague error: "The truth value of a DataFrame is ambiguous."
-        # gkemp FIXME : there needs to be a retry limit here or you just hang.
-        while (len(self.income.keys()) == 0):
-            try:
-                # This throws a warning but the code is correct.
-                self.income, self.income_meta = self.fundamentals.get_income_statement_annual(symbol=self.symbol)
-            except ValueError:
-                print("Sleeping for 1 minute.")
-                time.sleep(60)
-        self.apiCount += 1
+        # Only make the API call if you need to.
+        if (len(self.income) == 0):
+            self.income = self._fmp_api("income-statement")
+            self.apiCount += 1
+        
+    # Related: this returns EPS.
+    def getEPS(self):
+        if (len(self.income) == 0):
+            self.getIncome()
+        return self.income[0]['eps']
 
-    # This helper function gets the balance sheet from Alpha Vantage.
+
+    # This helper function gets the balance sheet.
 
     def getBalance(self):
-        while (len(self.balance.keys()) == 0):
-            try:
-                # This throws a warning but the code is correct.
-                self.balance, self.balance_meta = self.fundamentals.get_balance_sheet_annual(symbol=self.symbol)
-            except ValueError:
-                print("Sleeping for 1 minute.")
-                time.sleep(60)
-        self.apiCount += 1
+        # Only make the API call if you need to.
+        if (len(self.balance) == 0):
+            self.balance = self._fmp_api("balance-sheet-statement")
+            self.apiCount += 1
 
-    # This gets the cash flow statement from Alpha Vantage.
+
+    # This gets the cash flow statement.
     
     def getCashFlow(self):
-        while (len(self.cashflow.keys()) == 0):
-            try:
-                # This throws a warning but the code is correct.
-                self.cashflow, self.cashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
-            except ValueError:
-                print("Sleeping for 1 minute.")
-                time.sleep(60)
-        self.apiCount += 1
-
-    # This is similar, getting price history (adjusted for splits and dividends)
-    # if needed. 
-    # gkemp FIXME can we deprecate this and only use weekly prices?
-
-    def getDailyPrices(self):
-        while (len(self.dailyPrice.keys()) == 0):
-            try:
-                # get_daily_adjusted() is now a premium feature.
-                self.dailyPrice, self.dailyPrice_meta = self.timeSeries.get_daily(symbol=self.symbol)
-            except ValueError:
-                print("Sleeping for 1 minute.")
-                time.sleep(60)
+        # Only make the API call if you need to.
+        if (len(self.cashflow) == 0):
+            self.cashflow = self._fmp_api("cash-flow-statement")
             self.apiCount += 1
 
-    # This pulls weekly prices.
+    # Some screens want a recent price.  FMP gives us that on the overview.
+    # So we're just wrapping that up and returning it here.  In case we 
+    # need to change this again, we can hide that change here.
 
-    def getWeeklyPrices(self):
-        while (len(self.weeklyPrice.keys()) == 0):
-            try:
-                # So far get_weekly_adjusted() is not premium.  You can replace with get_weekly() if/when
-                # it does go premium, but the lack of split adjustment becomes a big issue on longer time frames.
-                self.weeklyPrice, self.weeklyPrice_meta = self.timeSeries.get_weekly_adjusted(symbol=self.symbol)
-            except ValueError:
-                print("Sleeping for 1 minute.")
-                time.sleep(60)
+    def getRecentPrice(self):
+        return (self.overview['price'])
+            
+
+    # This pulls daily prices.  Well it pulls a big mess.  We should condition
+    # the data into lists of dates, and closing prices.  Contrary to the docs 
+    # you get all of this back per entry:
+    # {'date': '2017-10-03', 'open': 38.5024986, 'high': 38.7724991, 'low': 38.4775009, 'close': 38.6199989, 'adjClose': 36.6528969, 'volume': 64921200.0, 'unadjustedVolume': 64921200.0, 'change': -1.8496, 'changePercent': -4.804, 'vwap': 37.96763, 'label': 'October 03, 17', 'changeOverTime': -0.04804}
+    # Also inconveniently we only get five years of prices on the free tier 
+    # of service.
+    #
+    # I think the only place this is used right now is in the BMW method
+    # function.  See what that needs for input data conditioning and do
+    # that here.
+
+    def getDailyPrice(self):
+        if (len(self.dailyPrice) == 0):
+            self.dailyPrice = self._fmp_api("historical-price-full")
             self.apiCount += 1
+        
+        # So we get a list of tuples, date and adjClose.  From newest ([0]) on
+        # down to the oldest.  We work backwards from the end to build the list
+        # used in the BMW analysis.
 
-    # This gets the earnings data from Alpha Vantage.
+            self.dateList = []
+            self.priceList = []
+
+            temp = list(self.dailyPrice['historical'])
+            for i in range((len(temp)-1),0,-1):
+                self.dateList.append(temp[i]['date'])
+                self.priceList.append(temp[i]['adjClose'])
+
+        if (self.verbose):
+            for i in range(0,len(self.dateList)):
+                print("{}: {:.2f}".format(self.dateList[i], self.priceList[i]))
+
+
+    # This gets the earnings data from Financial Modeling Prep.
 
     def getAnnualCashflow(self):
         while (len(self.annualCashflow.keys()) == 0):
@@ -184,10 +195,14 @@ class stonks:
         for key in self.overview:
             print("{}: {}".format(key, self.overview[key]))
 
+
     # This helper dumps out the balance sheet.
     def dumpBalanceSheet(self):
-        for key in self.balance:
-            print("{}:\n{}".format(key, self.balance[key]))
+        for i in range(0,len(self.balance)):
+            print("i = {}".format(i))
+        
+            for key in self.balance[i]:
+                print("{} : {}".format(key, self.balance[i][key]))
 
 
     # This returns f score term #1 - is return on assets above zero this year?
@@ -195,8 +210,8 @@ class stonks:
     def __fscore1(self):
         self.getIncome()
         self.getBalance()
-        netIncome = int(self.income["netIncome"][0])
-        currentAssets = int(self.balance["totalCurrentAssets"][0])
+        netIncome = int(self.income[0]["netIncome"])
+        currentAssets = int(self.balance[0]["totalCurrentAssets"])
 
         # gkemp FIXME this simplifies to netIncome is > 0.
         if ((netIncome/currentAssets) > 0):
@@ -218,7 +233,7 @@ class stonks:
 
     def __fscore2(self):
         self.getCashFlow()
-        if (int(self.cashflow["operatingCashflow"][0]) > 0):
+        if (int(self.cashflow[0]["operatingCashFlow"]) > 0):
             result = 1
         else:
             result = 0
@@ -238,8 +253,8 @@ class stonks:
         self.getIncome()
         self.getBalance()
         # Read the index as "N years ago".
-        roaThisYear = float(self.income["netIncome"][0]) / float(self.balance["totalCurrentAssets"][0])
-        roaLastYear = float(self.income["netIncome"][1]) / float(self.balance["totalCurrentAssets"][1])
+        roaThisYear = float(self.income[0]["netIncome"]) / float(self.balance[0]["totalCurrentAssets"])
+        roaLastYear = float(self.income[1]["netIncome"]) / float(self.balance[1]["totalCurrentAssets"])
 
         # I deviate slightly from Piotrosky here.  I award a point if ROA stays even.
         if (roaThisYear >= roaLastYear):
@@ -263,9 +278,9 @@ class stonks:
         self.getBalance()
         # Putting everything to float so I don't have to do a second integer-to-
         # float conversion later in the if statement.
-        operatingCashflow = float(self.cashflow["operatingCashflow"][0])
-        totalAssets = float(self.balance["totalAssets"][0])
-        roaThisYear = float(self.income["netIncome"][0]) / float(self.balance["totalCurrentAssets"][0])
+        operatingCashflow = float(self.cashflow[0]["operatingCashFlow"])
+        totalAssets = float(self.balance[0]["totalAssets"])
+        roaThisYear = float(self.income[0]["netIncome"]) / float(self.balance[0]["totalCurrentAssets"])
 
         if ((operatingCashflow/totalAssets) > roaThisYear):
             result = 1
@@ -275,7 +290,7 @@ class stonks:
         # verbose report
         if (self.verbose):
             print("fscore4: operating cash flow/total assets > ROA: {}".format(result))
-            print("\toperating cash flow = {:,}".format(int(self.cashflow["operatingCashflow"][0])))
+            print("\toperating cash flow = {:,}".format(int(self.cashflow[0]["operatingCashflow"])))
             print("\ttotal assets = {:,}".format(int(totalAssets)))
             print("\tROA this year = {}".format(roaThisYear))
 
@@ -288,15 +303,15 @@ class stonks:
     def __fscore5(self):
         self.getBalance()
         # Do we encode no debt as zero debt?  Hell Naw.  That would be easy.
-        if (self.balance["longTermDebt"][0].lower() == "none"):
-            thisYearLTLR = 0.0
-        else:
-            thisYearLTLR = float(self.balance["longTermDebt"][0]) / float(self.balance["totalAssets"][0])
+        # if ((type(self.balance[0]["longTermDebt"]) == "str") and (self.balance[0]["longTermDebt"].lower() == "none")):
+        #     thisYearLTLR = 0.0
+        # else:
+        thisYearLTLR = float(self.balance[0]["longTermDebt"]) / float(self.balance[0]["totalAssets"])
 
-        if (self.balance["longTermDebt"][1].lower() == "none"):
-            lastYearLTLR = 0.0
-        else:
-            lastYearLTLR = float(self.balance["longTermDebt"][1]) / float(self.balance["totalAssets"][1])
+        # if (self.balance[1]["longTermDebt"].lower() == "none"):
+        #     lastYearLTLR = 0.0
+        # else:
+        lastYearLTLR = float(self.balance[1]["longTermDebt"]) / float(self.balance[1]["totalAssets"])
 
         # We have to compare <= instead of < to cover the case where debt is zero
         # in both years.  We want to reward that behavior, not punush it.
@@ -319,8 +334,8 @@ class stonks:
 
     def __fscore6(self):
         self.getBalance()
-        currentRatioThisYear = float(self.balance["totalCurrentAssets"][0]) / float(self.balance["totalCurrentLiabilities"][0])
-        currentRatioLastYear = float(self.balance["totalCurrentAssets"][1]) / float(self.balance["totalCurrentLiabilities"][1])
+        currentRatioThisYear = float(self.balance[0]["totalCurrentAssets"]) / float(self.balance[0]["totalCurrentLiabilities"])
+        currentRatioLastYear = float(self.balance[1]["totalCurrentAssets"]) / float(self.balance[1]["totalCurrentLiabilities"])
 
         # Intentionally not giving a pass to current ratio being equal.
         if (currentRatioThisYear > currentRatioLastYear):
@@ -341,8 +356,8 @@ class stonks:
 
     def __fscore7(self):
         self.getBalance()
-        sharesThisYear = int(self.balance["commonStock"][0])
-        sharesLastYear = int(self.balance["commonStock"][1])
+        sharesThisYear = int(self.balance[0]["commonStock"])
+        sharesLastYear = int(self.balance[1]["commonStock"])
 
         if (sharesThisYear <= sharesLastYear):
             result = 1
@@ -363,8 +378,8 @@ class stonks:
 
     def __fscore8(self):
         self.getIncome()
-        grossMarginThisYear = (float(self.income["totalRevenue"][0]) - float(self.income["costOfRevenue"][0])) / float(self.income["totalRevenue"][0])
-        grossMarginLastYear = (float(self.income["totalRevenue"][1]) - float(self.income["costOfRevenue"][1])) / float(self.income["totalRevenue"][1])
+        grossMarginThisYear = (float(self.income[0]["revenue"]) - float(self.income[0]["costOfRevenue"])) / float(self.income[0]["revenue"])
+        grossMarginLastYear = (float(self.income[1]["revenue"]) - float(self.income[1]["costOfRevenue"])) / float(self.income[1]["revenue"])
 
         if (grossMarginThisYear > grossMarginLastYear):
             result = 1
@@ -374,10 +389,10 @@ class stonks:
         # verbose report
         if (self.verbose):
             print("fscore8: gross margin higher this year vs. last year: {}".format(result))
-            print("\ttotal revenue this year: {:,}".format(float(self.income["totalRevenue"][0])))
-            print("\ttotal revenue last year: {:,}".format(float(self.income["totalRevenue"][1])))
-            print("\tcost of sales this year: {:,}".format(float(self.income["costOfRevenue"][0])))
-            print("\tcost of sales last year: {:,}".format(float(self.income["costOfRevenue"][1])))
+            print("\ttotal revenue this year: {:,}".format(float(self.income[0]["totalRevenue"])))
+            print("\ttotal revenue last year: {:,}".format(float(self.income[1]["totalRevenue"])))
+            print("\tcost of sales this year: {:,}".format(float(self.income[0]["costOfRevenue"])))
+            print("\tcost of sales last year: {:,}".format(float(self.income[1]["costOfRevenue"])))
         
         return result
 
@@ -388,11 +403,11 @@ class stonks:
     def __fscore9(self):
         self.getBalance()
         self.getIncome()
-        avgTotalAssetsThisYear = (float(self.balance["totalAssets"][0]) + float(self.balance["totalAssets"][1])) / 2.0
-        avgTotalAssetsLastYear = (float(self.balance["totalAssets"][1]) + float(self.balance["totalAssets"][2])) / 2.0
+        avgTotalAssetsThisYear = (float(self.balance[0]["totalAssets"]) + float(self.balance[1]["totalAssets"])) / 2.0
+        avgTotalAssetsLastYear = (float(self.balance[1]["totalAssets"]) + float(self.balance[2]["totalAssets"])) / 2.0
 
-        assetTurnoverThisYear = float(self.income["totalRevenue"][0]) / avgTotalAssetsThisYear
-        assetTurnoverLastYear = float(self.income["totalRevenue"][1]) / avgTotalAssetsLastYear
+        assetTurnoverThisYear = float(self.income[0]["revenue"]) / avgTotalAssetsThisYear
+        assetTurnoverLastYear = float(self.income[1]["revenue"]) / avgTotalAssetsLastYear
 
         if (assetTurnoverThisYear > assetTurnoverLastYear):
             result = 1
@@ -459,8 +474,9 @@ class stonks:
     # This tries to compute the growth rate of the underlying business.
     def estimateGrowthRate(self):
         
-        # get historical cash flows from Alpha Vantage
-        self.getAnnualCashflow()
+        # get historical cash flows from database
+        # self.getAnnualCashflow()
+        self.getCashFlow()
 
         # Indexing self.annualCashflow returns a pandas object, not a real list.
         # So there's some shenanigans getting the data how we want it.
@@ -471,18 +487,13 @@ class stonks:
 
         # Make a list explicitly from the pandas data frame, casting things to 
         # the type we need them to be.
-        for index in self.annualCashflow["fiscalDateEnding"].keys():
-            myDateList.append(str(self.annualCashflow["fiscalDateEnding"][index]))
-            # myFlowList.append(math.log(float(self.annualCashflow["operatingCashflow"][index])))
-            myFlowList.append((float(self.annualCashflow["operatingCashflow"][index])))
+        for index in range(0, len(self.cashflow)):
+            myDateList.append(self.cashflow[index]['date'])
+            myFlowList.append(self.cashflow[index]['operatingCashFlow'])
 
         # But the lists are backwards.  Reverse them.
         myDateList.reverse()
         myFlowList.reverse()
-
-        # Dump out what's in there.
-        # for index in range(0, len(myDateList)):
-            # print("{}: {}: {:,}".format(index, myDateList[index], myFlowList[index]))
 
         # Now, finally, make numpy arrays from the lists of conditioned data.
         # myDates = numpy.array(myDateList) # not used
@@ -520,8 +531,11 @@ class stonks:
         #   2. DCF involves so much guesswork, even under ideal circumatances,
         #      that accuracy here is pointless.
         # The idea here is to get the DCF roughly right.
-        
-        cashFlowPerShare = float(self.overview["EPS"])
+       
+        # Can't assume this has been called previously.
+        if (len(self.income) == 0):
+            self.getIncome()
+        cashFlowPerShare = float(self.income[0]['eps'])
         # print("DEBUG: cashFlowPerShare = {:.02f}".format(cashFlowPerShare))
 
         # set up entry 0 in the array.
@@ -557,43 +571,27 @@ class stonks:
 
     def bmwChart(self, chart=True):
 
-        # Get weekly data if we don't have it already.
-        if (len(self.weeklyPrice.keys()) == 0):
-            self.getWeeklyPrices()
+        # Get historical price data.
+        self.getDailyPrice()
         
-        # This returns pandas formatted data.  I need numpy arrays.  lists as an intermediary.
-
-        myDateList = []
-        myPriceList = []
-
-        # Now pull the list data explicitly from the pandas formatted data.
-        # Cast type as needed.
-        for index in self.weeklyPrice.keys():
-            # gkemp FIXME if verbose ...
-            # print("{} : {}".format(index, self.weeklyPrice[index]['5. adjusted close']))
-            myDateList.append(str(index))
-            myPriceList.append(float(self.weeklyPrice[index]['5. adjusted close']))
-            
-        # But the data is backwards. Reverse it.
-        myDateList.reverse()
-        myPriceList.reverse()
-
-        years = float(len(myDateList)/52)
+        # gkemp FIXME : I don't like that we do this here.  Not sure how to address
+        # that here, though.
+        years = float(len(self.dateList)/365)
 
         # I need a numpy array, not a list.
-        myPrices = numpy.array(myPriceList)
+        myPrices = numpy.array(self.priceList)
         # And because the data grows geometrically we want the log of the original data.
         # log returns natural log.
         myLogPrices = numpy.log(myPrices)
 
         # Now that we're in arithmetic space we can fit a simple line.
-        pfit = Polynomial.fit(range(0, len(myPriceList)), myLogPrices, 1, window=(0, len(myPriceList)), domain=(0, len(myPriceList)))
+        pfit = Polynomial.fit(range(0, len(self.priceList)), myLogPrices, 1, window=(0, len(self.dateList)), domain=(0, len(self.dateList)))
         # extract results
         m = float(pfit.coef[1])
         b = float(pfit.coef[0])
 
         # Define a range for the plot, would prefer it was dates.
-        x = numpy.arange(0, len(myPriceList))
+        x = numpy.arange(0, len(self.priceList))
         
         # I don't know that this is necessary. It does make the linter happy.
         myLogLineList = []
@@ -609,7 +607,7 @@ class stonks:
         yAxisMax = 0
         
         # Make a list of log predicted price points.
-        for index in range(0, len(myPriceList)):
+        for index in range(0, len(self.priceList)):
             temp = m*index + b
             myLogLineList.append(temp)
             yAxisMin = min(yAxisMin, temp)
@@ -622,7 +620,7 @@ class stonks:
         # differences between the actual and predicted values. That's what we 
         # do here:
         tempList = []
-        for index in range(0, len(myPriceList)):
+        for index in range(0, len(self.priceList)):
             tempList.append((myLogPrices[index] - myLogLineList[index]) ** 2)
         # Now I take the square root of the average of the contents of the list.
         # For a weakly typed language, I sure do have to do a lot of type 
@@ -634,7 +632,7 @@ class stonks:
 
         # Use the previously computed predicted price points and sigma to 
         # compute +/- RMS lines, too.  Still in log space.
-        for index in range(0, len(myPriceList)):
+        for index in range(0, len(self.priceList)):
             myLogPlus1Sigma.append(myLogLineList[index] + sigma)
             myLogPlus2Sigma.append(myLogLineList[index] + 2 * sigma)
             myLogMinus1Sigma.append(myLogLineList[index] - sigma)
@@ -656,7 +654,7 @@ class stonks:
         myLogMinus2Array = numpy.array(myLogMinus2Sigma)
 
         # We use this repeatedly, save it here.
-        last = len(myDateList) - 1
+        last = len(self.dateList) - 1
 
         # CAGRs, needed whether we draw a chart or not.
         trueCAGR = float(((myPrices[last]/myPrices[0]) ** (1/years) - 1) * 100)
@@ -666,7 +664,7 @@ class stonks:
         result = []                                                 # a de facto type declaration
         result.append(fitCAGR)                                      # the CAGR of the line we fit to the log of the prices
         result.append(trueCAGR)                                     # the CAGR of the actual price data
-        result.append(float(myPrices[last]))                        # the last price we got from Alpha Vantage
+        result.append(float(myPrices[last]))                        # the last price we got from FMP
         result.append(float(numpy.exp(myLogLineArray[last])))       # the last price on the line fit to the log of the prices
 
         # Draw a linear graph, maybe.
@@ -720,10 +718,10 @@ class stonks:
             # Didn't expect I'd need to build this myself.
             plt.yticks(yAxisTicks, yAxisLabels, color="gray")
             # Set tick labels for X axis.  Limit the number of labels printed.
-            plt.xticks(numpy.arange(0, len(myDateList)), myDateList)
+            plt.xticks(numpy.arange(0, len(self.dateList)), self.dateList)
             plt.locator_params(axis='x', nbins=10)
             # Set chart title.
-            plt.title("BMW Chart for {} ({})".format(self.overview['Name'], self.symbol.upper()))
+            plt.title("BMW Chart for {} ({})".format(self.overview['companyName'], self.symbol.upper()))
             # Turn on grids.  I want heaver grid action on the Y axis.
             plt.grid(b=True, axis='x', which='major')
             plt.grid(b=True, axis='y', which='both')

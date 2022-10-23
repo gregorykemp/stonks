@@ -48,18 +48,18 @@ def main():
             print("Ticker {} not found in database.".format(ticker))
             continue
 
-        try:
-            if(float(thisStonk.overview["EPS"]) > 0):
-                fscore = thisStonk.fScore()
-                # Always print the summary score.
-                print("{} f-score: {}".format(ticker, sum(fscore)))
-                # If only one ticker listed, give the expanded report.
-                if (len(tickerList) == 1):
-                    thisStonk.fScorePrettyPrint(fscore)  
-            else:
-                print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
-        except:
-            print("{}: something went wrong.". format(ticker))            
+        # try:
+            # if(float(thisStonk.overview["EPS"]) > 0):
+        fscore = thisStonk.fScore()
+        # Always print the summary score.
+        print("{} f-score: {}".format(ticker, sum(fscore)))
+        # If only one ticker listed, give the expanded report.
+        if (len(tickerList) == 1):
+            thisStonk.fScorePrettyPrint(fscore)  
+            # else:
+                # print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
+        # except:
+            # print("{}: something went wrong.". format(ticker))            
 
         sys.stdout.flush()
         apiCount += thisStonk.getApiCount()
