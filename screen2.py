@@ -62,10 +62,10 @@ def main():
             else:
                 print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
                 continue
-        except:
+        except Exception as e:
             # Since the goal here is to screen a number of stocks we don't spend
             # a lot of time trying to fix errors.  We log the error and move on.
-            print("{}: something went wrong.". format(ticker))
+            print("{}: something went wrong: {}". format(ticker, e))
             continue            
 
         # For high scoring stonks, go a step further.
@@ -87,11 +87,12 @@ def main():
                 # this reads the database and gets recent prices.
                 # recentPrice = thisStonk.getRecentPrice()
                 # wouldn't need daily results for this.
-                thisStonk.getDailyPrices()
+                # thisStonk.getDailyPrices()
                 # this returns a list of dates you could index
-                temp = list(thisStonk.dailyPrice)
+                # temp = list(thisStonk.dailyPrice)
                 # and finally, this reads the dictionary in entry 0 (most recent) and returns adjusted price.
-                recentPrice = float(thisStonk.dailyPrice[temp[0]]['4. close'])
+                # recentPrice = float(thisStonk.dailyPrice[temp[0]]['4. close'])
+                recentPrice = float(thisStonk.overview['price'])
 
                 print("   intrinsic value: ${:.02f}".format(intrinsicValue))
                 print("      recent price: ${:.02f}".format(recentPrice))

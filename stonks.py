@@ -52,8 +52,14 @@ class stonks:
         if (self.verbose):
             print("I am a stonk and my symbol is {}".format(self.symbol))
         
+        # Hit database for profile.
         temp1 = self._fmp_api("profile")
-        self.overview = temp1[0]
+        # If the returned list is nonzero then we got something.
+        if (len(temp1) > 0):
+            self.overview = temp1[0]
+        # else the lookup failed and we need to communicate that back to the caller.
+        else:
+            raise KeyError("FMP database lookup of {} failed.".format(self.symbol))
 
         if (self.verbose):
             print("Name: {}".format(self.overview['companyName']))
@@ -88,7 +94,7 @@ class stonks:
         # Process status code.  Well, mostly, blow yourself up if it's not success.
         if (response.status_code != 200):
             print("Error: bad API status code {}.".format(response.status_code))
-            raise AssertionError
+            raise AssertionError("FMP API lookup for {} failed with error code {} ({}).".format(self.symbol, response.status_code, response.reason))
         
         # Bump API count for this stonk.
         # gkemp FIXME : refactor and move this to a singleton for all stonks.
