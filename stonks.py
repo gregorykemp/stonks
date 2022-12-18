@@ -145,7 +145,51 @@ class stonks:
 
     def getRecentPrice(self):
         return (self.overview['price'])
-            
+
+
+    # Wrapper to get revenue.
+    def getRevenue(self, year=0):
+        if (len(self.income) == 0):
+            self.getIncome()
+        return self.income[year]['revenue']
+
+    # Wrapper to get net income.
+    def getNetIncome(self, year=0):
+        if (len(self.income) == 0):
+            self.getIncome()
+        return self.income[year]['netIncome']
+
+    # Wrapper to get free cash flow
+    def getFCF(self, year=0):
+        if (len(self.cashflow) == 0):
+            self.getCashFlow()
+        return self.cashflow[year]['freeCashFlow']
+
+    # wraooer to get dividends paid
+    def getDividendsPaid(self, year=0):
+        if (len(self.cashflow) == 0):
+            self.getCashFlow()
+        # FMP stores dividends paid as a negative value
+        return -1 * self.cashflow[year]['dividendsPaid']
+    
+    # wrapper to get total equity
+    def getTotalEquity(self, year=0):
+        if (len(self.balance) == 0):
+            self.getBalance()
+        return self.balance[year]['totalEquity']
+
+    # wrapper to get total debt
+    def getTotalDebt(self, year=0):
+        if (len(self.balance) == 0):
+            self.getBalance()
+        return self.balance[year]['totalDebt']
+
+    # wrapper to get cash and cash equivalents
+    def getCashAndEquivalents(self, year=0):
+        if (len(self.balance) == 0):
+            self.getBalance()
+        return self.balance[year]['cashAndCashEquivalents']
+
 
     # This pulls daily prices.  Well it pulls a big mess.  We should condition
     # the data into lists of dates, and closing prices.  Contrary to the docs 
@@ -182,15 +226,17 @@ class stonks:
 
     # This gets the earnings data from Financial Modeling Prep.
 
-    def getAnnualCashflow(self):
-        while (len(self.annualCashflow.keys()) == 0):
-            try:
-                # This throws a warning but the code is correct.
-                self.annualCashflow, self.annualCashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
-            except ValueError:
-                print("Sleeping for 1 minute.")
-                time.sleep(60)
-        self.apiCount += 1
+    # this seems to be obsolete and has a problem (we don't import time anymore)
+    # gkemp FIXME remove obsolete code.
+    # def getAnnualCashflow(self):
+    #     while (len(self.annualCashflow.keys()) == 0):
+    #         try:
+    #             # This throws a warning but the code is correct.
+    #             self.annualCashflow, self.annualCashflow_meta = self.fundamentals.get_cash_flow_annual(symbol=self.symbol)
+    #         except ValueError:
+    #             print("Sleeping for 1 minute.")
+    #             time.sleep(60)
+    #     self.apiCount += 1
 
     # This returns the API access count
     def getApiCount(self):
