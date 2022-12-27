@@ -26,13 +26,78 @@ import sys
 
 # We need stonks!
 from stonks import stonks
+from stonks import screen
+
+# Make a child class from the base screener class.
+
+class screen1(screen):
+
+    # extend per-screen method:
+
+    def runScreen(self):
+
+        # Step 1: is EPS positive?
+        if(self.thisStonk.getEPS() > 0):
+            fscore = self.thisStonk.fScore()
+            # Always print the summary score.
+            print("{} f-score: {}".format(self.thisStonk.symbol, sum(fscore)))
+
+            # Step 2: is F-score greater than 5?
+            if (sum(fscore) > 5):
+                # gkemp FIXME need to scrub this method
+                growthRate = self.thisStonk.estimateGrowthRate()
+
+                # Step 3: is growth rate above 15%
+                if (growthRate > 0.15):
+                    recentPrice = float(self.thisStonk.getRecentPrice())
+                    # gkemp FIXME need to scrub this method too
+                    intrinsicValue = self.thisStonk.discountedCashFlow(growthRate)
+                    print("{}: {:.02f}% ${:2.02f}".format(self.thisStonk.symbol, (growthRate*100), intrinsicValue))
+                    print("   intrinsic value: ${:.02f}".format(intrinsicValue))
+                    print("      recent price: ${:.02f}".format(recentPrice))
+
+                    # Step 4: is recent price below intrinsic value?
+                    if (recentPrice < intrinsicValue):
+                        # No chart for batch mode.
+                        bmwResult = self.thisStonk.bmwChart(chart=False)
+
+                        print("    forecast price: ${:.02f}".format(bmwResult[3]))
+                        print("        price CAGR: {:.02f}%".format(bmwResult[1]))
+                        print("     forecast CAGR: {:.02f}%".format(bmwResult[0]))
+
+                        # Here we are:
+                        # 1. EPS is positive (no scrubs), and
+                        # 2. F-score greater than 5 (sound balance sheet), and
+                        # 3. growth rate above 15% (want growth), and
+                        # 4. recent price below intrinsic value, and 
+                        # 5. recent price below BMW long-term average.
+                        #
+                        # Looking for forecast CAGR above 10% and current price below long term trend.
+                        # gkemp FIXME again the threshold should be a parameter.
+                        if (bmwResult[0] > 10.0) and (bmwResult[3] > bmwResult[2]):
+                            # This is the message we want to see in the log file.
+                            # Flag it with $$$ since I'm looking for $$$ from my stonks.
+                            print("$$$ {} is a candidate!".format(self.thisStonk.symbol))
+        else:
+            # Else EPS was negative, no need to look further.
+            print("{}: {} EPS is negative, we're done.".format(self.thisStonk.symbol, self.thisStonk.getEPS()))
+        
+        # Flush the pipe. Helpful if debug messages are stuck in the buffer.
+        sys.stdout.flush()
+        self.apiCount += self.thisStonk.getApiCount()
+
+
+# This defines the main program.  Process the list of tickers on the command
+# line and print the results.
 
 def main():
-    # Read API key from text file. We don't validate the key here. You'll die soon enough if it's bad.
-    file = open("api_key.txt", "r")
-    api_key = file.read()
 
-    apiCount = 0
+    # Make a new screener.
+    myScreen = screen1()
+
+    # Make a list of tickers to process.
+    # I don't wrap this up in the screen object because some apps only use one
+    # ticker at a time.
     tickerList = []
     if (len(sys.argv) > 1):
         tickerList = sys.argv[1:]
@@ -42,86 +107,16 @@ def main():
 
     # Loop through the list of command line arguments provided.
     for ticker in tickerList:
-        print(ticker)
-        # This creates the stonk.  This will return a key error if the ticker 
-        # doesn't exist in the Alpha Vantage database.
-        try:
-            thisStonk = stonks(ticker, api_key)
-        except KeyError:
-            print("Ticker {} not found in database.".format(ticker))
-            continue
-
-        try:
-            if(thisStonk.getEPS() > 0):
-                fscore = thisStonk.fScore()
-                # Always print the summary score.
-                print("{} f-score: {}".format(ticker, sum(fscore)))
-                # If only one ticker listed, give the expanded report.
-                if (len(tickerList) == 1):
-                    thisStonk.fScorePrettyPrint(fscore)  
-            else:
-                print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
-                continue
-        except Exception as e:
-            # Since the goal here is to screen a number of stocks we don't spend
-            # a lot of time trying to fix errors.  We log the error and move on.
-            print("{}: something went wrong: {}". format(ticker, e))
-            continue            
-
-        # For high scoring stonks, go a step further.
-        if (sum(fscore) > 5):
-            # gkemp FIXME need to scrub this method
-            growthRate = thisStonk.estimateGrowthRate()
-            # gkemp FIXME need to scrub this method too
-            intrinsicValue = thisStonk.discountedCashFlow(growthRate)
-            print("{}: {:.02f}% ${:2.02f}".format(ticker, (growthRate*100), intrinsicValue))
-
-            # gkemp FIXME make the growth rate threshold a parameter.
-            if (growthRate > 0.15):
-                # we already did this
-                # intrinsicValue = thisStonk.discountedCashFlow(growthRate)
-                # gkemp FIXME
-                # We likely already have daily prices for this name. 
-                # Add a helper function to get recent close.  May also be on overview.
-                # might want to wrap this up better.  All this to get recent close.
-                # this reads the database and gets recent prices.
-                # recentPrice = thisStonk.getRecentPrice()
-                # wouldn't need daily results for this.
-                # thisStonk.getDailyPrices()
-                # this returns a list of dates you could index
-                # temp = list(thisStonk.dailyPrice)
-                # and finally, this reads the dictionary in entry 0 (most recent) and returns adjusted price.
-                # recentPrice = float(thisStonk.dailyPrice[temp[0]]['4. close'])
-                recentPrice = float(thisStonk.overview['price'])
-
-                print("   intrinsic value: ${:.02f}".format(intrinsicValue))
-                print("      recent price: ${:.02f}".format(recentPrice))
-
-                # Do more math if we're good so far.
-                if (recentPrice < intrinsicValue):
-                    # No chart for batch mode.
-                    bmwResult = thisStonk.bmwChart(chart=False)
-
-                    print("    forecast price: ${:.02f}".format(bmwResult[3]))
-                    print("        price CAGR: {:.02f}%".format(bmwResult[1]))
-                    print("     forecast CAGR: {:.02f}%".format(bmwResult[0]))
-
-                    # Looking for forecast CAGR above 10% and current price below
-                    # long term trend.
-                    # gkemp FIXME again the threshold should be a parameter.
-                    if (bmwResult[0] > 10.0) and (bmwResult[3] > bmwResult[2]):
-                        # This is the message we want to see in the log file.
-                        # Flag it with $$$ since I'm looking for $$$ from my stonks.
-                        print("$$$ {} is a candidate!".format(ticker))
-
-        # Flush the pipe. Helpful if debug messages are stuck in the buffer.
-        sys.stdout.flush()
-        apiCount += thisStonk.getApiCount()
-        # gkemp FIXME again this should be a parameter. If user has premium access 
-        # we don't need to throttle.
-        if (apiCount > 400):
-            print("API count limit reached.")
+        print("------------------------------")
+        # All the magic is wrapped up in this.  We call screen() to run the
+        # screener code defined above.  If it returns False we continue.  If 
+        # it returns True we're done.
+        if (myScreen.screen(ticker) == True):
             break
+
+# At some point we have to run the program.
+
+
 
 if __name__ == "__main__":
     main()
