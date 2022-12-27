@@ -98,10 +98,11 @@ def main():
 
     # Loop through the list of command line arguments provided.
     for ticker in tickerList:
+        print("------------------------------")
         # All the magic is wrapped up in this.  We call screen() to run the
-        # screener code defined above.  If it returns True we continue.  If 
-        # it returns False we're done.
-        if (myScreen.screen(ticker) == False):
+        # screener code defined above.  If it returns False we continue.  If 
+        # it returns True we're done.
+        if (myScreen.screen(ticker) == True):
             break
 
 # At some point we have to run the program.
