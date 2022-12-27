@@ -115,8 +115,5 @@ def main():
             break
 
 # At some point we have to run the program.
-
-
-
 if __name__ == "__main__":
     main()
