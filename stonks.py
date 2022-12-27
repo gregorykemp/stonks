@@ -190,6 +190,10 @@ class stonks:
             self.getBalance()
         return self.balance[year]['cashAndCashEquivalents']
 
+    # wrapper to return recent close
+    def getRecentPrice(self):
+        # I don't check overview because stonk wouldn't exist without it.
+        return self.overview['price']
 
     # This pulls daily prices.  Well it pulls a big mess.  We should condition
     # the data into lists of dates, and closing prices.  Contrary to the docs 
@@ -789,4 +793,44 @@ class stonks:
 
     # end of bmwChart
 
-# end of stonks
+# end of class stonks
+
+
+# This class is a base class used by screener apps.
+
+class screen:
+
+    # We always do these things at the beginning of a screen.  Move them to the
+    # init function of the screen class.  Creating the child screener class will
+    # initialize these housekeeping variables.
+
+    def __init__(self):
+        # Read API key from text file. We don't validate the key here. You'll die soon enough if it's bad.
+        # gkemp FIXME add file error handling here.
+        api_file = open("api_key.txt", "r")
+        self.api_key = api_file.read()
+
+        self.apiCount = 0
+
+    # This is the standard wrapper.  It runs for all screens.
+
+    def screen(self, ticker) -> bool:
+        # This creates the stonk.  This will return a key error if the ticker 
+        # doesn't exist in the database.  If the ticker exists, call the 
+        # extendable method to run this particular screen.
+        try:
+            self.thisStonk = stonks(ticker, self.api_key)
+            self.runScreen()
+        except KeyError:
+            print("Ticker {} not found in database.".format(ticker))
+
+        # Return whether we're over the API limit.
+        # gkemp FIXME make the API limit a parameter of __init__()
+        return (self.apiCount > 400)            
+
+    # This is the method the user is expected to extend.
+
+    def runScreen(self):
+        pass
+
+# end of class screen
