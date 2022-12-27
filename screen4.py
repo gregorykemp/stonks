@@ -30,17 +30,95 @@ import sys
 
 # We need stonks!
 from stonks import stonks
+from stonks import screen
 
-# gkemp FIXME the screeners have a lot of code in common.  It might be a good
-# idea to refactor the code so that the screener is a class, and the individual
-# screener implementations subclass the implementation.
+# Make a child class from the base screener class.
+
+class screen1(screen):
+
+    # extend per-screen method:
+
+    def runScreen(self):
+        print(self.thisStonk.symbol)
+        
+        # Count the number of screens we pass.
+        passCount = 0
+        
+        # actual screening starts here.
+        # gkemp FIXME should the values here be parameters?
+
+        # * Revenue growth > 5%
+        revenueGrowth = (float((self.thisStonk.getRevenue(year=0) - self.thisStonk.getRevenue(year=1))/self.thisStonk.getRevenue(year=1))) * 100.0
+        if (revenueGrowth <= 5.0):
+            symbol = "X"
+        else:
+            symbol = " "
+            passCount = passCount + 1
+        print("{}  revenue growth YoY: {:.2f}%".format(symbol, revenueGrowth))
+
+        # * Profit growth > 7%
+        profitGrowth = (float((self.thisStonk.getNetIncome(year=0) - self.thisStonk.getNetIncome(year=1))/self.thisStonk.getNetIncome(year=1))) * 100.0
+        if (profitGrowth <= 7.0):
+            symbol = "X"
+        else:
+            symbol = " "
+            passCount = passCount + 1
+        print("{}  profit growth YoY: {:.2f}%".format(symbol, profitGrowth))
+
+        # * FCF / earnings > 80%
+        fcfToEarnings = float(self.thisStonk.getFCF()/self.thisStonk.getNetIncome()) 
+        if (fcfToEarnings <= 0.8):
+            symbol = "X"
+        else:
+            symbol = " "
+            passCount = passCount + 1
+        print("{}  ratio of FCF to earnings: {:.2f}".format(symbol, fcfToEarnings))
+
+        # * ROIC > 15%
+        ROIC = float((self.thisStonk.getNetIncome() - self.thisStonk.getDividendsPaid())/(self.thisStonk.getTotalEquity() + self.thisStonk.getTotalDebt())) * 100.0
+        if (ROIC <= 15.0):
+            symbol = "X"
+        else:
+            symbol = " "
+            passCount = passCount + 1
+        print("{}  ROIC: {:.2f}%".format(symbol, ROIC))
+
+        # * Net debt / free cash flow to firm < 5
+        netDebtToFCF = float((self.thisStonk.getTotalDebt() - self.thisStonk.getCashAndEquivalents()) / self.thisStonk.getFCF()) 
+        if (netDebtToFCF >= 5.0 ):
+            symbol = "X"
+        else:
+            symbol = " "
+            passCount = passCount + 1
+        print("{}  ratio of net debt to FCF: {:.2f}".format(symbol, netDebtToFCF))
+
+        # * Debt/equity < 80% 
+        netDebtToEquity = float(self.thisStonk.getTotalDebt()/self.thisStonk.getTotalEquity()) * 100.0
+        if (netDebtToEquity >= 80.0):
+            symbol = "X"
+        else:
+            symbol = " "
+            passCount = passCount + 1
+        print("{}  debt to equity ratio: {:.2f}%".format(symbol, netDebtToEquity))
+
+        print("{} passes {} of 6 checks.".format(self.thisStonk.symbol, passCount))
+        if (passCount == 6): # gkemp FIXME magic number
+            print ("*** {} passes the screen ***".format(self.thisStonk.symbol))
+
+        # Flush the pipe. Helpful if debug messages are stuck in the buffer.
+        sys.stdout.flush()
+        self.apiCount += self.thisStonk.getApiCount()
+
+# Define main program.
 
 def main():
-    # Read API key from text file. We don't validate the key here. You'll die soon enough if it's bad.
-    file = open("api_key.txt", "r")
-    api_key = file.read()
 
-    apiCount = 0
+    # Make a new screener.
+    myScreen = screen1()
+
+    # Make a list of tickers to process.
+    # I don't wrap this up in the screen object because some apps only use one
+    # ticker at a time.
     tickerList = []
     if (len(sys.argv) > 1):
         tickerList = sys.argv[1:]
@@ -50,88 +128,13 @@ def main():
 
     # Loop through the list of command line arguments provided.
     for ticker in tickerList:
-        print(ticker)
-        # This creates the stonk.  This will return a key error if the ticker 
-        # doesn't exist in the Alpha Vantage database.
-        try:
-            thisStonk = stonks(ticker, api_key)
-        except KeyError:
-            print("Ticker {} not found in database.".format(ticker))
-            continue
-
-        # Count the number of screens we pass.
-        passCount = 0
-        
-        # actual screening starts here.
-        # gkemp FIXME should the values here be parameters?
-
-        # * Revenue growth > 5%
-        revenueGrowth = (float((thisStonk.getRevenue(year=0) - thisStonk.getRevenue(year=1))/thisStonk.getRevenue(year=1))) * 100.0
-        if (revenueGrowth <= 5.0):
-            symbol = "X"
-        else:
-            symbol = " "
-            passCount = passCount + 1
-        print("{}  revenue growth YoY: {:.2f}%".format(symbol, revenueGrowth))
-
-        # * Profit growth > 7%
-        profitGrowth = (float((thisStonk.getNetIncome(year=0) - thisStonk.getNetIncome(year=1))/thisStonk.getNetIncome(year=1))) * 100.0
-        if (profitGrowth <= 7.0):
-            symbol = "X"
-        else:
-            symbol = " "
-            passCount = passCount + 1
-        print("{}  profit growth YoY: {:.2f}%".format(symbol, profitGrowth))
-
-        # * FCF / earnings > 80%
-        fcfToEarnings = float(thisStonk.getFCF()/thisStonk.getNetIncome()) 
-        if (fcfToEarnings <= 0.8):
-            symbol = "X"
-        else:
-            symbol = " "
-            passCount = passCount + 1
-        print("{}  ratio of FCF to earnings: {:.2f}".format(symbol, fcfToEarnings))
-
-        # * ROIC > 15%
-        ROIC = float((thisStonk.getNetIncome() - thisStonk.getDividendsPaid())/(thisStonk.getTotalEquity() + thisStonk.getTotalDebt())) * 100.0
-        if (ROIC <= 15.0):
-            symbol = "X"
-        else:
-            symbol = " "
-            passCount = passCount + 1
-        print("{}  ROIC: {:.2f}%".format(symbol, ROIC))
-
-        # * Net debt / free cash flow to firm < 5
-        netDebtToFCF = float((thisStonk.getTotalDebt() - thisStonk.getCashAndEquivalents()) / thisStonk.getFCF()) 
-        if (netDebtToFCF >= 5.0 ):
-            symbol = "X"
-        else:
-            symbol = " "
-            passCount = passCount + 1
-        print("{}  ratio of net debt to FCF: {:.2f}".format(symbol, netDebtToFCF))
-
-        # * Debt/equity < 80% 
-        netDebtToEquity = float(thisStonk.getTotalDebt()/thisStonk.getTotalEquity()) * 100.0
-        if (netDebtToEquity >= 80.0):
-            symbol = "X"
-        else:
-            symbol = " "
-            passCount = passCount + 1
-        print("{}  debt to equity ratio: {:.2f}%".format(symbol, netDebtToEquity))
-
-        print("{} passes {} of 6 checks.".format(ticker, passCount))
-        if (passCount == 6): # gkemp FIXME magic number
-            print ("*** {} passes the screen ***".format(ticker))
-
-
-        # Flush the pipe. Helpful if debug messages are stuck in the buffer.
-        sys.stdout.flush()
-        apiCount += thisStonk.getApiCount()
-        # gkemp FIXME again this should be a parameter. If user has premium access 
-        # we don't need to throttle.
-        if (apiCount > 400):
-            print("API count limit reached.")
+        print("------------------------------")
+        # All the magic is wrapped up in this.  We call screen() to run the
+        # screener code defined above.  If it returns False we continue.  If 
+        # it returns True we're done.
+        if (myScreen.screen(ticker) == True):
             break
 
+# At some point we have to run the program.
 if __name__ == "__main__":
     main()
