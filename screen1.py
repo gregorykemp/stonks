@@ -25,13 +25,70 @@ import sys
 
 # We need stonks!
 from stonks import stonks
+from stonks import screen
+
+# Make a child class from the base screener class.
+
+class screen1(screen):
+
+    # Interesting.  VScode adds this:
+    #    return super().runScreen()        
+    # when I type this:
+    #    def runScreen(self):
+    # even when I don't want that.
+
+    def runScreen(self):
+
+        # Step 1: is EPS positive?
+        if(self.thisStonk.getEPS() > 0):
+
+            # Step 2: is F-score greater than 5?
+            fscore = self.thisStonk.fScore()
+            # Always print the summary score.
+            print("{} f-score: {}".format(self.thisStonk.symbol, sum(fscore)))
+
+            # Step 3: is growth rate above 15%?
+            if (sum(fscore) > 5):
+                growthRate = self.thisStonk.estimateGrowthRate()
+                intrinsicValue = self.thisStonk.discountedCashFlow(growthRate)
+                print("{}: {:.02f}% ${:2.02f}".format(self.thisStonk.symbol, (growthRate*100), intrinsicValue))
+
+                if (growthRate > 0.15):
+                    intrinsicValue = self.thisStonk.discountedCashFlow(growthRate)
+                    recentPrice = self.thisStonk.getRecentPrice()
+
+                    print("   intrinsic value: ${:.02f}".format(intrinsicValue))
+                    print("      recent price: ${:.02f}".format(recentPrice))
+
+                    # So here it is:
+                    # 1. Positive EPS, and
+                    # 2. F-score above 5, and 
+                    # 3. Growth rate above 15%, and
+                    # 4. Recent price below intrinsic value.
+
+                    if (recentPrice < intrinsicValue):
+                        print("$$$ {} is a candidate!".format(self.thisStonk.symbol))
+
+        else:
+            # Else EPS was negative, no need to look further.
+            print("{}: {} EPS is negative, we're done.".format(self.thisStonk.symbol, self.thisStonk.overview["EPS"]))
+
+
+        sys.stdout.flush()
+        self.apiCount += self.thisStonk.getApiCount()
+
+
+# This defines the main program.  Process the list of tickers on the command
+# line and print the results.
 
 def main():
-    # Read API key from text file. We don't validate the key here. You'll die soon enough if it's bad.
-    file = open("api_key.txt", "r")
-    api_key = file.read()
 
-    apiCount = 0
+    # Make a new screener.
+    myScreen = screen1()
+
+    # Make a list of tickers to process.
+    # I don't wrap this up in the screen object because some apps only use one
+    # ticker at a time.
     tickerList = []
     if (len(sys.argv) > 1):
         tickerList = sys.argv[1:]
@@ -41,64 +98,14 @@ def main():
 
     # Loop through the list of command line arguments provided.
     for ticker in tickerList:
-        # This creates the stonk.  This will return a key error if the ticker 
-        # doesn't exist in the Alpha Vantage database.
-        try:
-            thisStonk = stonks(ticker, api_key)
-        except KeyError:
-            print("Ticker {} not found in database.".format(ticker))
-            continue
-
-        try:
-            if(thisStonk.getEPS() > 0):
-                fscore = thisStonk.fScore()
-                # Always print the summary score.
-                print("{} f-score: {}".format(ticker, sum(fscore)))
-                # If only one ticker listed, give the expanded report.
-                if (len(tickerList) == 1):
-                    thisStonk.fScorePrettyPrint(fscore)  
-            else:
-                print("{}: {} EPS is negative, we're done.".format(ticker, thisStonk.overview["EPS"]))
-                continue
-        except:
-            print("{}: something went wrong.". format(ticker))
-            continue            
-
-        # For high scoring stonks, go a step further.
-        if (sum(fscore) > 5):
-            growthRate = thisStonk.estimateGrowthRate()
-            intrinsicValue = thisStonk.discountedCashFlow(growthRate)
-            print("{}: {:.02f}% ${:2.02f}".format(ticker, (growthRate*100), intrinsicValue))
-            print("{}".format(thisStonk.getApiCount()))
-
-            if (growthRate > 0.15):
-                intrinsicValue = thisStonk.discountedCashFlow(growthRate)
-                # gkemp FIXME
-                # might want to wrap this up better.  All this to get recent close.
-                # this reads the database and gets recent prices.
-                # recentPrice = thisStonk.getRecentPrice()
-                # wouldn't need daily results for this.
-                # gkemp FIXME
-                # also this gets me less than six months of price date.  I want that 20-year view.
-                # You need weekly or monthly series for that.
-                thisStonk.getDailyPrices()
-                # this returns a list of dates you could index
-                temp = list(thisStonk.dailyPrice)
-                # and finally, this reads the dictionary in entry 0 (most recent) and returns adjusted price.
-                recentPrice = float(thisStonk.dailyPrice[temp[0]]['5. adjusted close'])
-
-                print("   intrinsic value: ${:.02f}".format(intrinsicValue))
-                print("      recent price: ${:.02f}".format(recentPrice))
-
-                # So here it is.
-                if (recentPrice < intrinsicValue):
-                    print("$$$ {} is a candidate!".format(ticker))
-
-        sys.stdout.flush()
-        apiCount += thisStonk.getApiCount()
-        if (apiCount > 400):
-            print("API count limit reached.")
+        print("------------------------------")
+        # All the magic is wrapped up in this.  We call screen() to run the
+        # screener code defined above.  If it returns False we continue.  If 
+        # it returns True we're done.
+        if (myScreen.screen(ticker) == True):
             break
+
+# At some point we have to run the program.
 
 if __name__ == "__main__":
     main()
