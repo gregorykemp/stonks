@@ -119,7 +119,13 @@ class stonks:
     def getEPS(self):
         if (len(self.income) == 0):
             self.getIncome()
-        return self.income[0]['eps']
+        # guard against list lookup failure.
+        if (len(self.income) > 0):
+            result = self.income[0]['eps']
+        else:
+            # wrong but safe
+            result = 0.01
+        return result
 
 
     # This helper function gets the balance sheet.
@@ -267,7 +273,8 @@ class stonks:
         self.getIncome()
         self.getBalance()
         netIncome = int(self.income[0]["netIncome"])
-        currentAssets = int(self.balance[0]["totalCurrentAssets"])
+        # Don't risk the denominator being 0.
+        currentAssets = max(int(self.balance[0]["totalCurrentAssets"]),1)
 
         # gkemp FIXME this simplifies to netIncome is > 0.
         if ((netIncome/currentAssets) > 0):
@@ -308,21 +315,30 @@ class stonks:
     def __fscore3(self):
         self.getIncome()
         self.getBalance()
-        # Read the index as "N years ago".
-        roaThisYear = float(self.income[0]["netIncome"]) / float(self.balance[0]["totalCurrentAssets"])
-        roaLastYear = float(self.income[1]["netIncome"]) / float(self.balance[1]["totalCurrentAssets"])
 
-        # I deviate slightly from Piotrosky here.  I award a point if ROA stays even.
-        if (roaThisYear >= roaLastYear):
-            result = 1
-        else:
-            result = 0
+        # Read the index as "N years ago".
+        # Catch error if current assets returns 0.  Could be database error.
+        try:
+            roaThisYear = float(self.income[0]["netIncome"]) / float(self.balance[0]["totalCurrentAssets"])
+            roaLastYear = float(self.income[1]["netIncome"]) / float(self.balance[1]["totalCurrentAssets"])
+
+            # I deviate slightly from Piotrosky here.  I award a point if ROA stays even.
+            if (roaThisYear >= roaLastYear):
+                result = 1
+            else:
+                result = 0
+            
+            # verbose report
+            if (self.verbose):
+                print("fscore3: ROA greater this year than last year: {}".format(result))
+                print("\tROA this year: {}".format(roaThisYear))
+                print("\tROA last year: {}".format(roaLastYear))
         
-        # verbose report
-        if (self.verbose):
-            print("fscore3: ROA greater this year than last year: {}".format(result))
-            print("\tROA this year: {}".format(roaThisYear))
-            print("\tROA last year: {}".format(roaLastYear))
+        # Something bad happened.  Catch and log the error, and return a 
+        # useable result.
+        except ZeroDivisionError as err:
+            print("fscore3: ROA greater this year than last year: ERROR: {}".format(err))
+            result = 0
 
         return result
 
@@ -335,20 +351,27 @@ class stonks:
         # Putting everything to float so I don't have to do a second integer-to-
         # float conversion later in the if statement.
         operatingCashflow = float(self.cashflow[0]["operatingCashFlow"])
-        totalAssets = float(self.balance[0]["totalAssets"])
-        roaThisYear = float(self.income[0]["netIncome"]) / float(self.balance[0]["totalCurrentAssets"])
 
-        if ((operatingCashflow/totalAssets) > roaThisYear):
-            result = 1
-        else:
-            result = 0
+        try:
+            totalAssets = float(self.balance[0]["totalAssets"])
+            roaThisYear = float(self.income[0]["netIncome"]) / float(self.balance[0]["totalCurrentAssets"])
+
+            if ((operatingCashflow/totalAssets) > roaThisYear):
+                result = 1
+            else:
+                result = 0
+            
+            # verbose report
+            if (self.verbose):
+                print("fscore4: operating cash flow/total assets > ROA: {}".format(result))
+                print("\toperating cash flow = {:,}".format(int(self.cashflow[0]["operatingCashflow"])))
+                print("\ttotal assets = {:,}".format(int(totalAssets)))
+                print("\tROA this year = {}".format(roaThisYear))
         
-        # verbose report
-        if (self.verbose):
-            print("fscore4: operating cash flow/total assets > ROA: {}".format(result))
-            print("\toperating cash flow = {:,}".format(int(self.cashflow[0]["operatingCashflow"])))
-            print("\ttotal assets = {:,}".format(int(totalAssets)))
-            print("\tROA this year = {}".format(roaThisYear))
+        # Something bad happened.  Catch and log the error.  Return a useable result.
+        except ZeroDivisionError as err:
+            print("fscore4: operating cash flow/total assets > ROA: ERROR: {}".format(err))
+            result = 0
 
         return result
 
@@ -390,21 +413,28 @@ class stonks:
 
     def __fscore6(self):
         self.getBalance()
-        currentRatioThisYear = float(self.balance[0]["totalCurrentAssets"]) / float(self.balance[0]["totalCurrentLiabilities"])
-        currentRatioLastYear = float(self.balance[1]["totalCurrentAssets"]) / float(self.balance[1]["totalCurrentLiabilities"])
 
-        # Intentionally not giving a pass to current ratio being equal.
-        if (currentRatioThisYear > currentRatioLastYear):
-            result = 1
-        else:
+        try:
+            currentRatioThisYear = float(self.balance[0]["totalCurrentAssets"]) / float(self.balance[0]["totalCurrentLiabilities"])
+            currentRatioLastYear = float(self.balance[1]["totalCurrentAssets"]) / float(self.balance[1]["totalCurrentLiabilities"])
+
+            # Intentionally not giving a pass to current ratio being equal.
+            if (currentRatioThisYear > currentRatioLastYear):
+                result = 1
+            else:
+                result = 0
+
+            # verbose report
+            if (self.verbose):
+                print("fscore6: current ratio higher this year vs. last year: {}".format(result))
+                print("\tcurrent ratio this year = {}".format(currentRatioThisYear))
+                print("\tcurrent ratio last year = {}".format(currentRatioLastYear))
+
+        # Something bad happened.  Catch and log the error.  Return a useable result.
+        except ZeroDivisionError as err:
+            print("fscore6: current ratio higher this year vs. last year: ERROR: {}".format(err))
             result = 0
-
-        # verbose report
-        if (self.verbose):
-            print("fscore6: current ratio higher this year vs. last year: {}".format(result))
-            print("\tcurrent ratio this year = {}".format(currentRatioThisYear))
-            print("\tcurrent ratio last year = {}".format(currentRatioLastYear))
-
+            
         return result
 
     # This returns f score term #7: not issuing stock.
@@ -434,21 +464,31 @@ class stonks:
 
     def __fscore8(self):
         self.getIncome()
-        grossMarginThisYear = (float(self.income[0]["revenue"]) - float(self.income[0]["costOfRevenue"])) / float(self.income[0]["revenue"])
-        grossMarginLastYear = (float(self.income[1]["revenue"]) - float(self.income[1]["costOfRevenue"])) / float(self.income[1]["revenue"])
+        
+        # Now you'd think this would never fail, but sometimes the database 
+        # returns bad data.  So wrap this up so we return something instead
+        # of blowing ourselves up.
+        try:
+            grossMarginThisYear = (float(self.income[0]["revenue"]) - float(self.income[0]["costOfRevenue"])) / float(self.income[0]["revenue"])
+            grossMarginLastYear = (float(self.income[1]["revenue"]) - float(self.income[1]["costOfRevenue"])) / float(self.income[1]["revenue"])
 
-        if (grossMarginThisYear > grossMarginLastYear):
-            result = 1
-        else:
+            if (grossMarginThisYear > grossMarginLastYear):
+                result = 1
+            else:
+                result = 0
+
+            # verbose report
+            if (self.verbose):
+                print("fscore8: gross margin higher this year vs. last year: {}".format(result))
+                print("\ttotal revenue this year: {:,}".format(float(self.income[0]["totalRevenue"])))
+                print("\ttotal revenue last year: {:,}".format(float(self.income[1]["totalRevenue"])))
+                print("\tcost of sales this year: {:,}".format(float(self.income[0]["costOfRevenue"])))
+                print("\tcost of sales last year: {:,}".format(float(self.income[1]["costOfRevenue"])))
+
+        # Something bad happened.  Log the error and return a usable result.
+        except ZeroDivisionError as err:
+            print("fscore8: gross margin higher this year vs. last year: ERROR: {}".format(err))
             result = 0
-
-        # verbose report
-        if (self.verbose):
-            print("fscore8: gross margin higher this year vs. last year: {}".format(result))
-            print("\ttotal revenue this year: {:,}".format(float(self.income[0]["totalRevenue"])))
-            print("\ttotal revenue last year: {:,}".format(float(self.income[1]["totalRevenue"])))
-            print("\tcost of sales this year: {:,}".format(float(self.income[0]["costOfRevenue"])))
-            print("\tcost of sales last year: {:,}".format(float(self.income[1]["costOfRevenue"])))
         
         return result
 
